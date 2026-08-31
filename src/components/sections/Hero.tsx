@@ -13,7 +13,7 @@ export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) 
   return (
     <section className="grain relative flex min-h-[100svh] items-center overflow-hidden bg-marble pt-28">
       {/* Halo laiton diffus */}
-      <div className="pointer-events-none absolute -right-40 top-1/4 h-[560px] w-[560px] rounded-full bg-brass/[0.07] blur-[120px]" />
+      <div className="pointer-events-none absolute -right-40 top-1/4 h-[560px] w-[560px] rounded-full bg-bone/[0.03] blur-[130px]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
 
       {/* Filet vertical decoratif */}
@@ -25,7 +25,7 @@ export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) 
             <span className="eyebrow">{t.hero.eyebrow}</span>
             <span className="flex items-center gap-1.5">
               {[0, 1, 2, 3, 4].map((i) => (
-                <Star key={i} size={11} className="fill-brass text-brass" />
+                <Star key={i} size={10} className="fill-brass/70 text-brass/70" />
               ))}
               <span className="ml-1 font-body text-[11px] tracking-widest text-smoke">
                 {SALON.rating.toString().replace(".", ",")} · {SALON.reviewCount} {t.hero.reviews}
@@ -35,7 +35,7 @@ export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) 
 
           <h1 className="mt-8 font-display text-[clamp(3rem,10vw,6.5rem)] leading-[0.92] tracking-[-0.01em]">
             <span className="block text-bone">{t.hero.titleTop}</span>
-            <span className="brass-text block italic">{t.hero.titleBottom}</span>
+            <span className="block italic text-brass">{t.hero.titleBottom}</span>
           </h1>
 
           <div className="mt-9 flex items-start gap-5">
@@ -73,13 +73,13 @@ export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) 
         {/* Panneau arche */}
         <div className="relative hidden lg:block">
           <div className="animate-fade">
-            <ArchFrame ratio="aspect-[4/5]" index={0} tone="from-[#191510] to-[#040404]" />
+            <ArchFrame ratio="aspect-[4/5]" index={0} tone="from-[#1c1a17] via-[#121110] to-[#0a0909]" />
           </div>
 
-          <div className="absolute -left-10 bottom-10 w-56 border border-brass/25 bg-ink/90 p-5 backdrop-blur-sm">
+          <div className="absolute -left-10 bottom-10 w-56 border border-white/10 bg-ink/90 p-5 backdrop-blur-sm">
             <p className="eyebrow">{t.services.eyebrow}</p>
             <p className="mt-3 font-display text-4xl text-bone">
-              25<span className="ml-1 text-lg text-brass">EUR</span>
+              25<span className="ml-1 text-lg text-smoke">EUR</span>
             </p>
             <p className="mt-1 font-body text-[11px] uppercase tracking-widest text-smoke">
               Herrenhaarschnitt · 30 {t.common.min}

@@ -40,19 +40,19 @@ export function DayView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setDate(addDays(date, -1))}
-            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-brass hover:text-brass"
+            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-bone/50 hover:text-bone"
           >
             <ChevronLeft size={14} />
           </button>
           <button
             onClick={() => setDate(new Date())}
-            className="border border-white/10 px-4 py-2 font-body text-[10px] uppercase tracking-widest text-smoke hover:border-brass hover:text-brass"
+            className="border border-white/10 px-4 py-2 font-body text-[10px] uppercase tracking-widest text-smoke hover:border-bone/50 hover:text-bone"
           >
             {t.admin.today}
           </button>
           <button
             onClick={() => setDate(addDays(date, 1))}
-            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-brass hover:text-brass"
+            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-bone/50 hover:text-bone"
           >
             <ChevronRight size={14} />
           </button>
@@ -153,13 +153,13 @@ export function WeekView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setWeekStart(addDays(weekStart, -7))}
-            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-brass hover:text-brass"
+            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-bone/50 hover:text-bone"
           >
             <ChevronLeft size={14} />
           </button>
           <button
             onClick={() => setWeekStart(addDays(weekStart, 7))}
-            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-brass hover:text-brass"
+            className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-bone/50 hover:text-bone"
           >
             <ChevronRight size={14} />
           </button>

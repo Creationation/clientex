@@ -47,10 +47,10 @@ export const SEED_SETTINGS: Settings = {
 
 /** Galerie : placeholders generes en CSS tant que les photos HD ne sont pas fournies. */
 export const GALLERY: { id: string; captionKey: string; tone: string }[] = [
-  { id: "g1", captionKey: "chair",    tone: "from-[#141210] to-[#050505]" },
-  { id: "g2", captionKey: "fade",     tone: "from-[#1a1611] to-[#070707]" },
-  { id: "g3", captionKey: "mirror",   tone: "from-[#12100e] to-[#040404]" },
-  { id: "g4", captionKey: "razor",    tone: "from-[#181410] to-[#060606]" },
-  { id: "g5", captionKey: "beard",    tone: "from-[#151310] to-[#050505]" },
-  { id: "g6", captionKey: "interior", tone: "from-[#191512] to-[#070707]" },
+  { id: "g1", captionKey: "chair",    tone: "from-[#1e1d1a] via-[#131211] to-[#0a0a09]" },
+  { id: "g2", captionKey: "fade",     tone: "from-[#211f1c] via-[#141312] to-[#0b0b0a]" },
+  { id: "g3", captionKey: "mirror",   tone: "from-[#1a1917] via-[#111010] to-[#090908]" },
+  { id: "g4", captionKey: "razor",    tone: "from-[#232019] via-[#151412] to-[#0b0a0a]" },
+  { id: "g5", captionKey: "beard",    tone: "from-[#1c1b18] via-[#121110] to-[#0a0a09]" },
+  { id: "g6", captionKey: "interior", tone: "from-[#242220] via-[#161514] to-[#0c0c0b]" },
 ];

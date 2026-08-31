@@ -96,7 +96,7 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
                   onClick={() => setLang(l)}
                   className={cn(
                     "px-2 py-1 font-body text-[10px] tracking-widest transition-colors",
-                    lang === l ? "bg-brass text-ink" : "text-smoke hover:text-bone",
+                    lang === l ? "bg-bone text-ink" : "text-smoke hover:text-bone",
                   )}
                   aria-label={`Sprache ${LANG_LABEL[l]}`}
                 >
@@ -107,7 +107,7 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
 
             <a
               href={SALON.phoneHref}
-              className="hidden h-9 w-9 items-center justify-center border border-white/10 text-smoke transition-colors hover:border-brass hover:text-brass md:flex"
+              className="hidden h-9 w-9 items-center justify-center border border-white/10 text-smoke transition-colors hover:border-bone/60 hover:text-bone md:flex"
               aria-label={t.contact.call}
             >
               <Phone size={14} />
@@ -168,7 +168,7 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
                   onClick={() => setLang(l)}
                   className={cn(
                     "border px-4 py-2 font-body text-[10px] tracking-widest transition-colors",
-                    lang === l ? "border-brass bg-brass text-ink" : "border-white/10 text-smoke",
+                    lang === l ? "border-bone bg-bone text-ink" : "border-white/10 text-smoke",
                   )}
                 >
                   {LANG_LABEL[l]}

@@ -443,7 +443,7 @@ export function BlocksTab({
           onClick={() => setAllDay((v) => !v)}
           className={cn(
             "border px-3 py-2.5 font-body text-[10px] uppercase tracking-widest",
-            allDay ? "border-brass text-brass" : "border-white/15 text-smoke",
+            allDay ? "border-bone/60 text-bone" : "border-white/15 text-smoke",
           )}
         >
           {t.admin.allDay}

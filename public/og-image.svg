@@ -1,21 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8A6A1E"/>
-      <stop offset="45%" stop-color="#E7CB74"/>
-      <stop offset="100%" stop-color="#C9A227"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.8" cy="0.25" r="0.7">
-      <stop offset="0%" stop-color="#C9A227" stop-opacity="0.16"/>
-      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="1200" height="630" fill="#0A0A0A"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
-  <text x="90" y="196" font-family="Jost, Helvetica, Arial, sans-serif" font-size="20" letter-spacing="12" fill="#C9A227">WIEN DONAUSTADT</text>
-  <text x="90" y="316" font-family="Georgia, 'Times New Roman', serif" font-size="104" fill="#F4F1EA">DEL Herren</text>
-  <text x="90" y="416" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-style="italic" fill="url(#brass)">Friseur &amp; Barber Shop</text>
-  <rect x="90" y="470" width="120" height="2" fill="url(#brass)"/>
-  <text x="90" y="530" font-family="Jost, Helvetica, Arial, sans-serif" font-size="24" letter-spacing="4" fill="#9A948C">Erzherzog-Karl-Strasse 60 · 1220 Wien · +43 660 87511680</text>
-  <path d="M980 150 c60 0 108 48 108 108 v210 a20 20 0 0 1 -20 20 H892 a20 20 0 0 1 -20 -20 V258 c0 -60 48 -108 108 -108 z" fill="none" stroke="url(#brass)" stroke-width="3" opacity="0.55"/>
+  <rect width="1200" height="630" fill="#0D0C0B"/>
+  <rect x="0" y="0" width="1200" height="630" fill="none"/>
+  <text x="92" y="188" font-family="Helvetica, Arial, sans-serif" font-size="17" letter-spacing="11" fill="#A89684">WIEN DONAUSTADT</text>
+  <text x="92" y="312" font-family="Georgia, 'Times New Roman', serif" font-size="98" fill="#EFEBE3">DEL Herren</text>
+  <text x="92" y="410" font-family="Georgia, 'Times New Roman', serif" font-size="74" font-style="italic" fill="#A89684">Friseur &amp; Barber Shop</text>
+  <rect x="92" y="464" width="96" height="1" fill="#A89684"/>
+  <text x="92" y="522" font-family="Helvetica, Arial, sans-serif" font-size="21" letter-spacing="3" fill="#8B857D">Erzherzog-Karl-Strasse 60 · 1220 Wien · +43 660 87511680</text>
+  <path d="M986 148 c62 0 112 50 112 112 v212 a18 18 0 0 1 -18 18 H892 a18 18 0 0 1 -18 -18 V260 c0 -62 50 -112 112 -112 z" fill="none" stroke="#A89684" stroke-width="2" opacity="0.35"/>
 </svg>

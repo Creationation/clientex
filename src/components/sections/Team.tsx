@@ -21,23 +21,19 @@ export default function Team({ barbers }: { barbers: Barber[] }) {
           {barbers.map((b, i) => (
             <Reveal key={b.id} delay={i * 110}>
               <Link to={`/termin?barber=${b.id}`} className="block">
-                <div className="relative">
-                  <ArchFrame
-                    ratio="aspect-[3/4]"
-                    index={i + 1}
-                    src={b.image_url}
-                    tone={
-                      ["from-[#181410] to-[#050505]", "from-[#151310] to-[#040404]", "from-[#1a1611] to-[#060606]"][
-                        i % 3
-                      ]
-                    }
-                  />
-                  {!b.image_url ? (
-                    <span className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-display text-[clamp(3rem,7vw,4.5rem)] text-white/[0.07]">
-                      {b.initials}
-                    </span>
-                  ) : null}
-                </div>
+                <ArchFrame
+                  ratio="aspect-[4/5]"
+                  index={i + 1}
+                  src={b.image_url}
+                  monogram={b.image_url ? undefined : b.initials}
+                  tone={
+                    [
+                      "from-[#1d1c19] via-[#121111] to-[#0a0a09]",
+                      "from-[#1a1917] via-[#111010] to-[#090908]",
+                      "from-[#201e1a] via-[#141312] to-[#0b0a0a]",
+                    ][i % 3]
+                  }
+                />
 
                 <div className="mt-5 flex items-baseline justify-between gap-3 border-t border-white/[0.07] pt-4">
                   <div>

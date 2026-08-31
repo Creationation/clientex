@@ -75,8 +75,9 @@ export function SectionHead({
 export function ArchFrame({
   label,
   index,
-  tone = "from-[#171410] to-[#050505]",
+  tone = "from-[#1a1917] via-[#111010] to-[#0b0a0a]",
   src,
+  monogram,
   ratio = "aspect-[3/4]",
   className,
 }: {
@@ -84,6 +85,7 @@ export function ArchFrame({
   index?: number;
   tone?: string;
   src?: string | null;
+  monogram?: string;
   ratio?: string;
   className?: string;
 }) {
@@ -103,11 +105,19 @@ export function ArchFrame({
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.06]"
           />
+        ) : monogram ? (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="font-display text-[clamp(3rem,9vw,5.5rem)] leading-none text-bone/20">
+              {monogram}
+            </span>
+          </div>
         ) : (
           <Ornament index={index} />
         )}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_35%,rgba(0,0,0,0.75)_100%)]" />
-        <div className="pointer-events-none absolute inset-[10px] rounded-[inherit] border border-brass/20" />
+        {/* Lumiere rasante, neutre : elle sculpte le cadre sans le colorer */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_50%_at_50%_-8%,hsl(40_14%_92%/0.07),transparent_72%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_42%,rgba(0,0,0,0.65)_100%)]" />
+        <div className="pointer-events-none absolute inset-[10px] rounded-[inherit] border border-bone/[0.07]" />
       </div>
       {label ? (
         <div className="mt-4 flex items-baseline justify-between gap-3">
@@ -127,12 +137,12 @@ export function ArchFrame({
 function Ornament({ index = 0 }: { index?: number }) {
   return (
     <div className="absolute inset-0 grid place-items-center">
-      <svg viewBox="0 0 200 260" className="h-[62%] w-auto opacity-[0.5]" aria-hidden="true">
+      <svg viewBox="0 0 200 260" className="h-[54%] w-auto opacity-[0.35]" aria-hidden="true">
         <defs>
           <linearGradient id={`br-${index}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="hsl(41 62% 32%)" />
-            <stop offset="45%" stopColor="hsl(44 78% 66%)" />
-            <stop offset="100%" stopColor="hsl(46 71% 40%)" />
+            <stop offset="0%" stopColor="hsl(33 14% 38%)" />
+            <stop offset="50%" stopColor="hsl(36 22% 74%)" />
+            <stop offset="100%" stopColor="hsl(35 20% 52%)" />
           </linearGradient>
         </defs>
         <path
@@ -152,19 +162,6 @@ function Ornament({ index = 0 }: { index?: number }) {
         <path d="M100 106v52M74 132h52" stroke={`url(#br-${index})`} strokeWidth="0.6" opacity="0.7" />
       </svg>
     </div>
-  );
-}
-
-export function Monogram({ text, className }: { text: string; className?: string }) {
-  return (
-    <span
-      className={cn(
-        "brass-text font-display text-[clamp(2.5rem,7vw,4rem)] leading-none",
-        className,
-      )}
-    >
-      {text}
-    </span>
   );
 }
 

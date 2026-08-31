@@ -185,7 +185,7 @@ export default function Booking() {
         </div>
         <div className="h-px w-full bg-white/[0.07]">
           <div
-            className="h-px bg-brass-sheen transition-all duration-500"
+            className="h-px bg-bone transition-all duration-500"
             style={{ width: `${((step + 1) / 5) * 100}%` }}
           />
         </div>
@@ -236,8 +236,8 @@ export default function Booking() {
                       className={cn(
                         "group flex items-start justify-between gap-4 border p-5 text-left transition-all duration-300",
                         active
-                          ? "border-brass bg-brass/[0.07]"
-                          : "border-white/10 bg-ink-soft hover:border-brass/50",
+                          ? "border-bone/70 bg-bone/[0.04]"
+                          : "border-white/10 bg-ink-soft hover:border-bone/35",
                       )}
                     >
                       <span>
@@ -248,7 +248,7 @@ export default function Booking() {
                           {s.duration_min} {t.common.min}
                         </span>
                       </span>
-                      <span className="shrink-0 font-display text-lg text-brass">
+                      <span className="shrink-0 font-display text-lg text-bone">
                         {formatPrice(s.price)}
                         <span className="ml-1 text-[10px]">EUR</span>
                       </span>
@@ -274,11 +274,11 @@ export default function Booking() {
                   className={cn(
                     "flex items-center gap-4 border p-5 text-left transition-all duration-300",
                     barberTouched && barberId === null
-                      ? "border-brass bg-brass/[0.07]"
-                      : "border-white/10 bg-ink-soft hover:border-brass/50",
+                      ? "border-bone/70 bg-bone/[0.04]"
+                      : "border-white/10 bg-ink-soft hover:border-bone/35",
                   )}
                 >
-                  <span className="grid h-12 w-12 shrink-0 place-items-center border border-brass/30 font-display text-lg text-brass">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center border border-white/15 font-display text-lg text-bone/80">
                     ?
                   </span>
                   <span>
@@ -303,11 +303,11 @@ export default function Booking() {
                       className={cn(
                         "flex items-center gap-4 border p-5 text-left transition-all duration-300",
                         active
-                          ? "border-brass bg-brass/[0.07]"
-                          : "border-white/10 bg-ink-soft hover:border-brass/50",
+                          ? "border-bone/70 bg-bone/[0.04]"
+                          : "border-white/10 bg-ink-soft hover:border-bone/35",
                       )}
                     >
-                      <span className="grid h-12 w-12 shrink-0 place-items-center border border-brass/30 font-display text-lg text-brass">
+                      <span className="grid h-12 w-12 shrink-0 place-items-center border border-white/15 font-display text-lg text-bone/80">
                         {b.initials}
                       </span>
                       <span>
@@ -331,7 +331,7 @@ export default function Booking() {
                 <button
                   disabled={dateOffset === 0}
                   onClick={() => setDateOffset((o) => Math.max(0, o - 7))}
-                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-brass hover:text-brass disabled:opacity-30"
+                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-bone/50 hover:text-bone disabled:opacity-30"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -351,15 +351,15 @@ export default function Booking() {
                         className={cn(
                           "flex flex-col items-center gap-1 border py-4 transition-all duration-300",
                           active
-                            ? "border-brass bg-brass/[0.07]"
-                            : "border-white/10 bg-ink-soft hover:border-brass/50",
+                            ? "border-bone/70 bg-bone/[0.04]"
+                            : "border-white/10 bg-ink-soft hover:border-bone/35",
                         )}
                       >
                         <span className="font-body text-[10px] uppercase tracking-widest text-smoke">
                           {t.hours.daysShort[d.getDay()]}
                         </span>
                         <span
-                          className={cn("font-display text-2xl", active ? "text-brass" : "text-bone")}
+                          className={cn("font-display text-2xl", active ? "text-bone" : "text-bone/70")}
                         >
                           {d.getDate()}
                         </span>
@@ -374,7 +374,7 @@ export default function Booking() {
                 <button
                   disabled={dateOffset + 7 >= availableDates.length}
                   onClick={() => setDateOffset((o) => o + 7)}
-                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-brass hover:text-brass disabled:opacity-30"
+                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-bone/50 hover:text-bone disabled:opacity-30"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -418,9 +418,9 @@ export default function Booking() {
                             className={cn(
                               "border py-3 font-body text-[13px] tracking-wide transition-all duration-200",
                               time === s.time
-                                ? "border-brass bg-brass text-ink"
+                                ? "border-bone bg-bone text-ink"
                                 : s.available
-                                  ? "border-white/10 bg-ink-soft text-bone hover:border-brass/60 hover:text-brass"
+                                  ? "border-white/10 bg-ink-soft text-bone hover:border-bone/40 hover:text-bone"
                                   : "cursor-not-allowed border-white/[0.04] bg-transparent text-smoke/25 line-through",
                             )}
                           >
@@ -545,7 +545,7 @@ export default function Booking() {
               <span className="eyebrow">{t.booking.total}</span>
               <span className="font-display text-3xl text-bone">
                 {service ? formatPrice(service.price) : "0"}
-                <span className="ml-1 text-sm text-brass">EUR</span>
+                <span className="ml-1 text-sm text-smoke">EUR</span>
               </span>
             </div>
           </div>

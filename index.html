@@ -13,6 +13,15 @@
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="author" content="DEL Herren Friseur Barber Shop" />
 
+    <!--
+      Traduction automatique du navigateur desactivee : le site fournit deja
+      DE / EN / TR via son propre selecteur, et Google Translate injecte des
+      balises <font> dans le DOM, ce qui empeche React de mettre a jour les
+      textes dynamiques (recapitulatif de reservation, creneaux, compteur
+      d'etapes).
+    -->
+    <meta name="google" content="notranslate" />
+
     <!-- SEO local -->
     <meta name="geo.region" content="AT-9" />
     <meta name="geo.placename" content="Wien Donaustadt" />

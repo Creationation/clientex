@@ -30,7 +30,7 @@ export default function FloatingActions() {
         </a>
         <Link
           to="/termin"
-          className="flex flex-col items-center gap-1.5 bg-brass-sheen py-3.5 text-ink"
+          className="flex flex-col items-center gap-1.5 bg-bone py-3.5 text-ink"
         >
           <CalendarDays size={16} />
           <span className="font-body text-[9px] font-medium uppercase tracking-widest">

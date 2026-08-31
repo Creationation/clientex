@@ -209,7 +209,7 @@ function Dashboard({
             ) : null}
             <button
               onClick={signOut}
-              className="flex items-center gap-2 border border-white/10 px-3 py-2 font-body text-[10px] uppercase tracking-widest text-smoke hover:border-brass hover:text-brass"
+              className="flex items-center gap-2 border border-white/10 px-3 py-2 font-body text-[10px] uppercase tracking-widest text-smoke hover:border-bone/50 hover:text-bone"
             >
               <LogOut size={12} /> {t.admin.signOut}
             </button>
@@ -224,7 +224,7 @@ function Dashboard({
                 onClick={() => setTab(id)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 font-body text-[10px] uppercase tracking-widest transition-colors",
-                  tab === id ? "bg-brass text-ink" : "text-smoke hover:text-bone",
+                  tab === id ? "bg-bone text-ink" : "text-smoke hover:text-bone",
                 )}
               >
                 <Icon size={12} />

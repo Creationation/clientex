@@ -19,8 +19,8 @@ function detectLang(): Lang {
   } catch {
     /* navigation privee */
   }
-  const nav = typeof navigator !== "undefined" ? navigator.language.slice(0, 2) : "de";
-  if (nav === "en" || nav === "tr") return nav;
+  // Le salon est viennois : l'allemand est la langue par defaut, quelle que
+  // soit la langue du navigateur. Le visiteur bascule lui-meme s'il le veut.
   return "de";
 }
 

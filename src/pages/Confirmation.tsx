@@ -40,7 +40,7 @@ export default function Confirmation() {
 
   return (
     <div className="grain relative min-h-screen bg-marble">
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brass/[0.07] blur-[130px]" />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-bone/[0.035] blur-[130px]" />
 
       <header className="relative border-b border-white/10">
         <div className="container flex items-center justify-center py-6">
@@ -51,7 +51,7 @@ export default function Confirmation() {
       </header>
 
       <main className="container relative flex max-w-2xl flex-col items-center py-16 text-center md:py-24">
-        <span className="grid h-16 w-16 place-items-center rounded-full border border-brass/40 bg-brass/10 text-brass">
+        <span className="grid h-16 w-16 place-items-center rounded-full border border-bone/25 bg-bone/[0.06] text-bone">
           <Check size={26} />
         </span>
 
@@ -65,9 +65,9 @@ export default function Confirmation() {
         <div className="mt-12 w-full border border-white/10 bg-ink-soft/80 p-7 text-left backdrop-blur-sm">
           <div className="flex items-baseline justify-between gap-4 border-b border-white/10 pb-5">
             <span className="font-display text-2xl text-bone">{serviceLabel}</span>
-            <span className="font-display text-2xl text-brass">
+            <span className="font-display text-2xl text-bone">
               {formatPrice(booking.price)}
-              <span className="ml-1 text-xs">EUR</span>
+              <span className="ml-1 text-xs text-smoke">EUR</span>
             </span>
           </div>
 
@@ -103,7 +103,7 @@ export default function Confirmation() {
           </div>
         </div>
 
-        <p className="mt-12 font-display text-lg italic text-smoke">{t.confirmation.seeYou}</p>
+        <p className="mt-12 font-display text-lg italic text-brass">{t.confirmation.seeYou}</p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link

@@ -31,7 +31,7 @@ export default function Services({ services }: { services: Service[] }) {
               title={
                 <>
                   {t.services.title}
-                  <span className="brass-text italic">.</span>
+                  <span className="text-brass">.</span>
                 </>
               }
               sub={t.services.sub}
@@ -58,7 +58,7 @@ export default function Services({ services }: { services: Service[] }) {
                         to={`/termin?service=${s.id}`}
                         className="flex items-baseline gap-4 py-5 transition-colors hover:bg-white/[0.02]"
                       >
-                        <span className="font-display text-lg text-bone transition-colors group-hover:text-brass md:text-xl">
+                        <span className="font-display text-lg text-bone transition-colors group-hover:text-brass-light md:text-xl">
                           {serviceName(s, lang)}
                         </span>
                         <span className="hidden flex-1 translate-y-[-4px] border-b border-dotted border-white/15 sm:block" />
@@ -72,7 +72,7 @@ export default function Services({ services }: { services: Service[] }) {
                             </span>
                           ) : null}
                           {formatPrice(s.price)}
-                          <span className="ml-1 text-xs text-brass">EUR</span>
+                          <span className="ml-1 text-xs text-smoke">EUR</span>
                         </span>
                       </Link>
                     </li>

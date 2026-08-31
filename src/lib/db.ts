@@ -1,7 +1,10 @@
 import type {
-  Barber, BlockedSlot, Booking, BusySlot, NewBookingInput, OpeningHour, Service, Settings,
+  AdminAccount, Barber, BlockedSlot, Booking, BusySlot, NewBookingInput,
+  OpeningHour, Service, Settings,
 } from "@/data/types";
-import { SEED_BARBERS, SEED_OPENING_HOURS, SEED_SERVICES, SEED_SETTINGS } from "@/data/seed";
+import {
+  SEED_ADMIN, SEED_BARBERS, SEED_OPENING_HOURS, SEED_SERVICES, SEED_SETTINGS,
+} from "@/data/seed";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { addDays, toDateKey, toHHMM, toMinutes, uid } from "./utils";
 
@@ -34,9 +37,18 @@ export interface Db {
   listBlocked(fromDate: string, toDate: string): Promise<BlockedSlot[]>;
   createBlocked(b: Omit<BlockedSlot, "id">): Promise<BlockedSlot>;
   deleteBlocked(id: string): Promise<void>;
+  listAdmins(): Promise<AdminAccount[]>;
+  createAdmin(input: { email: string; name: string; password: string }): Promise<void>;
+  deleteAdmin(id: string): Promise<void>;
+  /** Mode demo uniquement : en production c'est Supabase Auth qui valide. */
+  verifyDemoLogin(email: string, password: string): Promise<AdminAccount | null>;
 }
 
-const STORE_KEY = "delherren_demo_v2";
+const STORE_KEY = "delherren_demo_v3";
+
+interface DemoAdmin extends AdminAccount {
+  password: string;
+}
 
 interface DemoStore {
   services: Service[];
@@ -45,32 +57,35 @@ interface DemoStore {
   settings: Settings;
   bookings: Booking[];
   blocked: BlockedSlot[];
+  admins: DemoAdmin[];
 }
 
 function demoBookings(services: Service[]): Booking[] {
   const today = new Date();
-  const rows: [number, string, string, string, string, Booking["status"]][] = [
-    [0, "10:00", "svc-haircut", "brb-ali", "Lukas Berger", "confirmed"],
-    [0, "11:30", "svc-cutbeard", "brb-mehmet", "Deniz Yilmaz", "confirmed"],
-    [0, "14:00", "svc-shave", "brb-serkan", "Marco Huber", "pending"],
-    [0, "16:15", "svc-haircut", "brb-ali", "Stefan Novak", "confirmed"],
-    [1, "09:30", "svc-beard", "brb-mehmet", "Ahmet Kaya", "confirmed"],
-    [1, "13:00", "svc-razorcut", "brb-ali", "Philipp Wagner", "confirmed"],
-    [2, "15:00", "svc-kids", "brb-serkan", "Familie Gruber", "pending"],
-    [3, "17:30", "svc-cutbeard", "brb-ali", "Onur Demir", "confirmed"],
+  const rows: [number, string, string[], string, string, Booking["status"]][] = [
+    [0, "10:00", ["svc-haircut"], "brb-ali", "Lukas Berger", "confirmed"],
+    [0, "11:30", ["svc-cutbeard"], "brb-mehmet", "Deniz Yilmaz", "confirmed"],
+    [0, "14:00", ["svc-shave", "svc-brows"], "brb-serkan", "Marco Huber", "pending"],
+    [0, "16:15", ["svc-haircut"], "brb-ali", "Stefan Novak", "confirmed"],
+    [1, "09:30", ["svc-beard"], "brb-mehmet", "Ahmet Kaya", "confirmed"],
+    [1, "13:00", ["svc-razorcut"], "brb-ali", "Philipp Wagner", "confirmed"],
+    [2, "15:00", ["svc-kids"], "brb-serkan", "Familie Gruber", "pending"],
+    [3, "17:30", ["svc-cutbeard"], "brb-ali", "Onur Demir", "confirmed"],
   ];
-  return rows.map(([offset, time, serviceId, barberId, name, status], i) => {
-    const service = services.find((s) => s.id === serviceId)!;
+  return rows.map(([offset, time, serviceIds, barberId, name, status], i) => {
+    const picked = serviceIds.map((id) => services.find((s) => s.id === id)!);
+    const duration = picked.reduce((sum, s) => sum + s.duration_min, 0);
+    const price = picked.reduce((sum, s) => sum + s.price, 0);
     const date = addDays(today, offset);
     const booking: Booking = {
       id: `bkg-demo-${i}`,
       barber_id: barberId,
-      service_id: serviceId,
+      service_ids: serviceIds,
       booking_date: toDateKey(date),
       start_time: time,
-      end_time: toHHMM(toMinutes(time) + service.duration_min),
-      duration_min: service.duration_min,
-      price: service.price,
+      end_time: toHHMM(toMinutes(time) + duration),
+      duration_min: duration,
+      price,
       status,
       client_name: name,
       client_email: `${name.split(" ")[0].toLowerCase()}@example.at`,
@@ -91,6 +106,15 @@ function freshStore(): DemoStore {
     settings: structuredClone(SEED_SETTINGS),
     bookings: demoBookings(SEED_SERVICES),
     blocked: [],
+    admins: [
+      {
+        id: "adm-owner",
+        email: SEED_ADMIN.email,
+        name: SEED_ADMIN.name,
+        password: SEED_ADMIN.password,
+        created_at: new Date().toISOString(),
+      },
+    ],
   };
 }
 
@@ -102,7 +126,9 @@ function readStore(): DemoStore {
       localStorage.setItem(STORE_KEY, JSON.stringify(seeded));
       return seeded;
     }
-    return JSON.parse(raw) as DemoStore;
+    const parsed = JSON.parse(raw) as DemoStore;
+    if (!parsed.admins || parsed.admins.length === 0) parsed.admins = freshStore().admins;
+    return parsed;
   } catch {
     return freshStore();
   }
@@ -123,6 +149,13 @@ function mutate(fn: (s: DemoStore) => void) {
 }
 
 const inRange = (date: string, from: string, to: string) => date >= from && date <= to;
+
+const strip = (a: DemoAdmin): AdminAccount => ({
+  id: a.id,
+  email: a.email,
+  name: a.name,
+  created_at: a.created_at,
+});
 
 const demoDb: Db = {
   isDemo: true,
@@ -193,11 +226,15 @@ const demoDb: Db = {
   },
   async createBooking(input) {
     const store = readStore();
-    const service = store.services.find((s) => s.id === input.service_id);
-    if (!service) throw new Error("SERVICE_NOT_FOUND");
+    const picked = input.service_ids
+      .map((id) => store.services.find((s) => s.id === id))
+      .filter((s): s is Service => Boolean(s));
+    if (picked.length === 0) throw new Error("SERVICE_NOT_FOUND");
 
+    const duration = picked.reduce((sum, s) => sum + s.duration_min, 0);
+    const price = picked.reduce((sum, s) => sum + s.price, 0);
     const start = toMinutes(input.start_time);
-    const end = start + service.duration_min;
+    const end = start + duration;
 
     const conflicts = (barberId: string) => {
       const bookingClash = store.bookings.some(
@@ -232,12 +269,12 @@ const demoDb: Db = {
     const booking: Booking = {
       id: uid("bkg"),
       barber_id: barberId,
-      service_id: input.service_id,
+      service_ids: picked.map((s) => s.id),
       booking_date: input.booking_date,
       start_time: input.start_time,
       end_time: toHHMM(end),
-      duration_min: service.duration_min,
-      price: service.price,
+      duration_min: duration,
+      price,
       status: store.settings.auto_confirm ? "confirmed" : "pending",
       client_name: input.client_name,
       client_email: input.client_email,
@@ -276,6 +313,40 @@ const demoDb: Db = {
       store.blocked = store.blocked.filter((b) => b.id !== id);
     });
   },
+  async listAdmins() {
+    return readStore().admins.map(strip);
+  },
+  async createAdmin({ email, name, password }) {
+    mutate((store) => {
+      const normalized = email.trim().toLowerCase();
+      const existing = store.admins.find((a) => a.email === normalized);
+      if (existing) {
+        existing.name = name;
+        if (password) existing.password = password;
+        return;
+      }
+      store.admins.push({
+        id: uid("adm"),
+        email: normalized,
+        name,
+        password,
+        created_at: new Date().toISOString(),
+      });
+    });
+  },
+  async deleteAdmin(id) {
+    mutate((store) => {
+      // On ne laisse jamais le dashboard sans aucun compte.
+      if (store.admins.length <= 1) return;
+      store.admins = store.admins.filter((a) => a.id !== id);
+    });
+  },
+  async verifyDemoLogin(email, password) {
+    const found = readStore().admins.find(
+      (a) => a.email === email.trim().toLowerCase() && a.password === password,
+    );
+    return found ? strip(found) : null;
+  },
 };
 
 /* ------------------------------ Supabase ------------------------------ */
@@ -283,6 +354,15 @@ const demoDb: Db = {
 function sb() {
   if (!supabase) throw new Error("SUPABASE_NOT_CONFIGURED");
   return supabase;
+}
+
+interface BookingRow extends Omit<Booking, "service_ids"> {
+  booking_services?: { service_id: string }[] | null;
+}
+
+function mapBooking(row: BookingRow): Booking {
+  const { booking_services, ...rest } = row;
+  return { ...rest, service_ids: (booking_services ?? []).map((s) => s.service_id) };
 }
 
 const supabaseDb: Db = {
@@ -338,36 +418,37 @@ const supabaseDb: Db = {
   async listBookings(from, to) {
     const { data, error } = await sb()
       .from("bookings")
-      .select("*")
+      .select("*, booking_services(service_id)")
       .gte("booking_date", from)
       .lte("booking_date", to)
       .order("booking_date")
       .order("start_time");
     if (error) throw new Error(error.message);
-    return (data ?? []) as Booking[];
+    return ((data ?? []) as BookingRow[]).map(mapBooking);
   },
   async listBusy(from, to) {
     const { data, error } = await sb().rpc("public_busy_slots", { p_from: from, p_to: to });
     if (error) throw new Error(error.message);
-    return (data ?? []).map((r: Record<string, string>) => ({
+    return ((data ?? []) as Record<string, string>[]).map((r) => ({
       barber_id: r.barber_id ?? null,
       booking_date: r.booking_date,
       start_time: String(r.start_time).slice(0, 5),
       end_time: String(r.end_time).slice(0, 5),
-    })) as BusySlot[];
+    }));
   },
   async createBooking(input) {
     // Passage obligatoire par l'Edge Function : elle valide le creneau cote
     // serveur, ecrit avec la service role, puis notifie Telegram et Resend.
     const { data, error } = await sb().functions.invoke("create-booking", { body: input });
     if (error) throw new Error(error.message);
-    const payload = data as { error?: string; booking?: Booking };
+    const payload = data as { error?: string; booking?: BookingRow };
     if (payload?.error) throw new Error(payload.error);
     if (!payload?.booking) throw new Error("BOOKING_FAILED");
-    return payload.booking;
+    return mapBooking(payload.booking);
   },
   async updateBooking(id, patch) {
-    const { error } = await sb().from("bookings").update(patch).eq("id", id);
+    const { service_ids, ...rest } = patch;
+    const { error } = await sb().from("bookings").update(rest).eq("id", id);
     if (error) throw new Error(error.message);
   },
   async deleteBooking(id) {
@@ -392,6 +473,35 @@ const supabaseDb: Db = {
   async deleteBlocked(id) {
     const { error } = await sb().from("blocked_slots").delete().eq("id", id);
     if (error) throw new Error(error.message);
+  },
+  async listAdmins() {
+    const { data, error } = await sb()
+      .from("admin_users")
+      .select("user_id, email, name, created_at")
+      .order("created_at");
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Record<string, string>[]).map((r) => ({
+      id: r.user_id,
+      email: r.email ?? "",
+      name: r.name ?? "",
+      created_at: r.created_at,
+    }));
+  },
+  async createAdmin({ email, name }) {
+    // Cote Supabase, le compte doit d'abord exister dans Auth. On rattache
+    // simplement l'utilisateur existant a la table des admins.
+    const { error } = await sb().rpc("grant_admin", {
+      p_email: email.trim().toLowerCase(),
+      p_name: name,
+    });
+    if (error) throw new Error(error.message);
+  },
+  async deleteAdmin(id) {
+    const { error } = await sb().from("admin_users").delete().eq("user_id", id);
+    if (error) throw new Error(error.message);
+  },
+  async verifyDemoLogin() {
+    return null;
   },
 };
 

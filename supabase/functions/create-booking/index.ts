@@ -15,14 +15,15 @@ import { corsHeaders, json, SALON, toHHMM, toMinutes } from "../_shared/cors.ts"
 
 interface Payload {
   barber_id: string | null;
-  service_id: string;
+  /** Une ou plusieurs prestations pour le meme rendez-vous. */
+  service_ids: string[];
   booking_date: string;
   start_time: string;
   client_name: string;
   client_email: string;
   client_phone: string;
   notes?: string;
-  language?: "de" | "en" | "tr";
+  language?: "de" | "en";
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
   const email = (body.client_email ?? "").trim().toLowerCase();
   const phone = (body.client_phone ?? "").trim();
   const notes = (body.notes ?? "").trim().slice(0, 500);
-  const language = body.language === "en" || body.language === "tr" ? body.language : "de";
+  const language = body.language === "en" ? "en" : "de";
 
   if (name.length < 2 || name.length > 120) return json({ error: "INVALID_NAME" }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "INVALID_EMAIL" }, 400);
@@ -62,19 +63,30 @@ Deno.serve(async (req) => {
   if (!DATE_RE.test(body.booking_date)) return json({ error: "INVALID_DATE" }, 400);
   if (!TIME_RE.test(body.start_time)) return json({ error: "INVALID_TIME" }, 400);
 
-  /* ------------------------- service, prix, duree ------------------------- */
+  /* ---------------------- prestations, prix, duree ------------------------ */
 
-  const { data: service, error: serviceError } = await admin
+  // Les ids arrivent du client, mais la duree et le prix sont TOUJOURS relus
+  // en base : un total envoye par le navigateur n'a aucune valeur.
+  const ids = Array.from(new Set(body.service_ids ?? [])).filter(Boolean);
+  if (ids.length === 0 || ids.length > 6) return json({ error: "SERVICE_NOT_FOUND" }, 400);
+
+  const { data: services, error: serviceError } = await admin
     .from("services")
-    .select("id, name_de, name_en, name_tr, duration_min, price, active")
-    .eq("id", body.service_id)
-    .maybeSingle();
+    .select("id, name_de, name_en, duration_min, price, active, sort_order")
+    .in("id", ids)
+    .eq("active", true)
+    .order("sort_order");
 
   if (serviceError) return json({ error: serviceError.message }, 500);
-  if (!service || !service.active) return json({ error: "SERVICE_NOT_FOUND" }, 400);
+  if (!services || services.length !== ids.length) {
+    return json({ error: "SERVICE_NOT_FOUND" }, 400);
+  }
+
+  const totalDuration = services.reduce((sum, s) => sum + s.duration_min, 0);
+  const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
 
   const start = toMinutes(body.start_time);
-  const end = start + service.duration_min;
+  const end = start + totalDuration;
   const endTime = toHHMM(end);
 
   /* ---------------------------- date et horaires --------------------------- */
@@ -173,12 +185,11 @@ Deno.serve(async (req) => {
     .from("bookings")
     .insert({
       barber_id: barberId,
-      service_id: service.id,
       booking_date: body.booking_date,
       start_time: body.start_time,
       end_time: endTime,
-      duration_min: service.duration_min,
-      price: service.price,
+      duration_min: totalDuration,
+      price: totalPrice,
       status: settings?.auto_confirm === false ? "pending" : "confirmed",
       client_name: name,
       client_email: email,
@@ -198,12 +209,21 @@ Deno.serve(async (req) => {
     return json({ error: "INSERT_FAILED" }, 500);
   }
 
-  const serviceLabel =
-    language === "en"
-      ? service.name_en || service.name_de
-      : language === "tr"
-        ? service.name_tr || service.name_de
-        : service.name_de;
+  // Lignes de prestations. Si elles echouent, la reservation ne doit pas
+  // rester orpheline : on la supprime et on renvoie une erreur franche.
+  const { error: linesError } = await admin.from("booking_services").insert(
+    services.map((s, i) => ({ booking_id: booking.id, service_id: s.id, position: i })),
+  );
+
+  if (linesError) {
+    console.error("[create-booking] booking_services", linesError.message);
+    await admin.from("bookings").delete().eq("id", booking.id);
+    return json({ error: "INSERT_FAILED" }, 500);
+  }
+
+  const serviceLabel = services
+    .map((s) => (language === "en" ? s.name_en || s.name_de : s.name_de))
+    .join(" + ");
 
   /* ---------------------------- notifications ---------------------------- */
 
@@ -217,7 +237,11 @@ Deno.serve(async (req) => {
     invoke(supabaseUrl, serviceRole, "send-booking-confirmation", notify),
   ]);
 
-  return json({ booking, barberName, serviceLabel });
+  return json({
+    booking: { ...booking, booking_services: services.map((s) => ({ service_id: s.id })) },
+    barberName,
+    serviceLabel,
+  });
 });
 
 async function invoke(url: string, key: string, fn: string, body: unknown) {

@@ -20,6 +20,7 @@ alter table public.opening_hours enable row level security;
 alter table public.settings      enable row level security;
 alter table public.blocked_slots enable row level security;
 alter table public.bookings      enable row level security;
+alter table public.booking_services enable row level security;
 
 -- ------------------------------------------------------------ admin_users --
 
@@ -159,5 +160,26 @@ create policy "bookings update admin" on public.bookings
   with check (public.is_admin());
 
 create policy "bookings delete admin" on public.bookings
+  for delete to authenticated
+  using (public.is_admin());
+
+-- ------------------------------------------------------- booking_services --
+
+-- Memes regles que bookings : lecture admin, ecriture reservee a la service
+-- role via l'Edge Function create-booking.
+create policy "booking_services select admin" on public.booking_services
+  for select to authenticated
+  using (public.is_admin());
+
+create policy "booking_services insert admin" on public.booking_services
+  for insert to authenticated
+  with check (public.is_admin());
+
+create policy "booking_services update admin" on public.booking_services
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "booking_services delete admin" on public.booking_services
   for delete to authenticated
   using (public.is_admin());

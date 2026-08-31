@@ -11,7 +11,7 @@ import { corsHeaders, json, SALON } from "../_shared/cors.ts";
  * Fonction interne : bearer service role obligatoire.
  */
 
-type Lang = "de" | "en" | "tr";
+type Lang = "de" | "en";
 
 const COPY: Record<Lang, Record<string, string>> = {
   de: {
@@ -47,25 +47,9 @@ const COPY: Record<Lang, Record<string, string>> = {
     bye: "See you soon",
     call: "Call us",
   },
-  tr: {
-    subject: "DEL Herren randevun",
-    title: "Randevun hazir",
-    hello: "Merhaba",
-    intro: "seni gormek icin sabirsizlaniyoruz. Randevu detaylarin asagida.",
-    service: "Hizmet",
-    barber: "Berber",
-    date: "Tarih",
-    time: "Saat",
-    duration: "Sure",
-    total: "Toplam",
-    where: "Adres",
-    policy: "Gelemeyecegin olursa lutfen zamaninda haber ver. Kisa bir telefon yeterli.",
-    bye: "Yakinda gorusmek uzere",
-    call: "Bizi ara",
-  },
 };
 
-const LOCALE: Record<Lang, string> = { de: "de-AT", en: "en-GB", tr: "tr-TR" };
+const LOCALE: Record<Lang, string> = { de: "de-AT", en: "en-GB" };
 
 const INK = "#0A0A0A";
 const SURFACE = "#131313";
@@ -90,7 +74,7 @@ Deno.serve(async (req) => {
   }
 
   const { booking, serviceLabel, barberName } = await req.json();
-  const lang: Lang = (["de", "en", "tr"] as const).includes(booking?.language)
+  const lang: Lang = (["de", "en"] as const).includes(booking?.language)
     ? booking.language
     : "de";
   const c = COPY[lang];

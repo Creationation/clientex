@@ -31,6 +31,7 @@ $$;
 create table if not exists public.admin_users (
   user_id    uuid primary key references auth.users(id) on delete cascade,
   email      text,
+  name       text not null default '',
   created_at timestamptz not null default now()
 );
 
@@ -57,7 +58,6 @@ create table if not exists public.services (
   slug          text not null unique,
   name_de       text not null,
   name_en       text not null default '',
-  name_tr       text not null default '',
   duration_min  integer not null check (duration_min between 5 and 480),
   price         numeric(6,2) not null check (price >= 0),
   is_from_price boolean not null default false,
@@ -81,7 +81,6 @@ create table if not exists public.barbers (
   initials   text not null default '',
   role_de    text not null default '',
   role_en    text not null default '',
-  role_tr    text not null default '',
   image_url  text,
   sort_order integer not null default 0,
   active     boolean not null default true,
@@ -153,7 +152,6 @@ create type public.booking_status as enum
 create table if not exists public.bookings (
   id            uuid primary key default gen_random_uuid(),
   barber_id     uuid not null references public.barbers(id) on delete restrict,
-  service_id    uuid not null references public.services(id) on delete restrict,
   booking_date  date not null,
   start_time    time not null,
   end_time      time not null,
@@ -164,7 +162,7 @@ create table if not exists public.bookings (
   client_email  text not null check (client_email ~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]{2,}$'),
   client_phone  text not null check (length(btrim(client_phone)) between 6 and 40),
   notes         text not null default '',
-  language      text not null default 'de' check (language in ('de','en','tr')),
+  language      text not null default 'de' check (language in ('de','en')),
   user_id       uuid references auth.users(id) on delete set null, -- phase 2
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -211,3 +209,49 @@ as $$
 $$;
 
 grant execute on function public.public_busy_slots(date, date) to anon, authenticated;
+
+-- ------------------------------------------------------- booking_services --
+
+-- Un rendez-vous peut combiner plusieurs prestations (coupe + barbe + ...).
+-- Table de liaison plutot qu'un tableau d'ids : les cles etrangeres restent
+-- reelles et un service encore reserve ne peut pas etre supprime par erreur.
+create table if not exists public.booking_services (
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  service_id uuid not null references public.services(id) on delete restrict,
+  position   smallint not null default 0,
+  primary key (booking_id, service_id)
+);
+
+create index if not exists booking_services_booking_idx
+  on public.booking_services (booking_id);
+
+-- ------------------------------------------------------------ grant_admin --
+
+-- Donne l'acces au dashboard a un compte Auth deja existant, a partir de son
+-- e-mail. SECURITY DEFINER car auth.users n'est pas lisible par le client.
+create or replace function public.grant_admin(p_email text, p_name text default '')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  select id into v_user from auth.users where lower(email) = lower(p_email);
+  if v_user is null then
+    raise exception 'USER_NOT_FOUND';
+  end if;
+
+  insert into public.admin_users (user_id, email, name)
+  values (v_user, lower(p_email), coalesce(p_name, ''))
+  on conflict (user_id) do update set name = excluded.name;
+end;
+$$;
+
+revoke all on function public.grant_admin(text, text) from public;
+grant execute on function public.grant_admin(text, text) to authenticated;

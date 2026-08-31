@@ -22,9 +22,16 @@ Tant que `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` ne sont pas
 renseignes, l'app tourne en **mode demo** : les services, barbiers, horaires et
 reservations viennent du `localStorage`, alimentes par `src/data/seed.ts`.
 
-Tout est utilisable dans ce mode, y compris le tunnel de reservation complet et
-l'admin (bouton "Demo-Admin offnen", aucun mot de passe). Les e-mails et les
-notifications Telegram ne partent evidemment pas.
+Tout est utilisable dans ce mode, y compris le tunnel de reservation complet,
+le Tagesplan et l'admin. Les e-mails et les notifications Telegram ne partent
+evidemment pas.
+
+**Acces admin en mode demo** (defini dans `SEED_ADMIN`, `src/data/seed.ts`) :
+
+```
+renardiego@gmail.com
+DelHerren2026!
+```
 
 Pour repartir de donnees fraiches : vider le `localStorage` du domaine, ou
 appeler `resetDemoData()` depuis `src/lib/db.ts`.
@@ -75,32 +82,35 @@ src/
   components/
     sections/     Hero, Services, Team, Gallery, Hours, Contact, Marquee
     admin/        vues calendrier, editeurs CRUD, primitives partagees
-    ui/           Reveal, SectionHead, ArchFrame, Pill
+    ui/           Reveal, SectionHead, Photo, Pill
     Header.tsx  Footer.tsx  FloatingActions.tsx  Seo.tsx
-  contexts/       LanguageContext (DE / EN / TR)
+  contexts/       LanguageContext (DE / EN)
   data/           types, seed, fiche salon, textes legaux
   hooks/          useSalonData, useAdminAuth, useReveal
-  i18n/           de.ts, en.ts, tr.ts (le type est derive de de.ts)
+  i18n/           de.ts, en.ts (le type est derive de de.ts)
   lib/            db.ts (adaptateurs), slots.ts (moteur de creneaux),
                   ics.ts, supabase.ts, utils.ts
-  pages/          Landing, Booking, Confirmation, Legal, Admin, NotFound
+  pages/          Landing, Booking, Confirmation, Legal, Admin,
+                  Tagesplan, NotFound
 supabase/
   migrations/     schema puis policies RLS
   functions/      create-booking, send-booking-confirmation,
                   send-telegram-notification
   seed.sql        donnees de demarrage
 public/           manifest, icones, robots.txt, sitemap.xml, sw.js
+  media/          video du hero, affiche et photos de la galerie
 ```
 
 ### Routes
 
 | Route | Page |
 | --- | --- |
-| `/` | landing one-page |
-| `/termin` | tunnel de reservation en 5 etapes |
+| `/` | landing one-page, hero video |
+| `/termin` | tunnel de reservation en 5 etapes, plusieurs prestations possibles |
 | `/termin/bestaetigt` | confirmation avec export `.ics` et Google Agenda |
 | `/impressum` `/datenschutz` | mentions legales, obligatoires en Autriche |
-| `/admin` | dashboard, protege par Supabase Auth |
+| `/admin` | dashboard, e-mail + mot de passe |
+| `/tagesplan` | plan du jour plein ecran pour la tablette du salon |
 
 ---
 
@@ -109,7 +119,11 @@ public/           manifest, icones, robots.txt, sitemap.xml, sw.js
 ### Tables
 
 `services` · `barbers` · `opening_hours` · `settings` · `blocked_slots` ·
-`bookings` · `admin_users`
+`bookings` · `booking_services` · `admin_users`
+
+Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
+`booking_services`, et `bookings` porte les totaux (`duration_min`, `price`)
+recalcules cote serveur.
 
 ### Deux garde-fous a ne jamais retirer
 
@@ -156,18 +170,24 @@ supabase db push                   # applique supabase/migrations/
 psql "$DB_URL" -f supabase/seed.sql # ou : coller le contenu dans le SQL Editor
 ```
 
-### Creer le premier admin
+### Comptes admin
 
-1. Supabase Dashboard, Authentication, Add user (e-mail + mot de passe)
-2. Dans le SQL Editor :
+Chaque membre du salon a son propre e-mail et son propre mot de passe.
+Supabase Auth gere le mot de passe, la table `admin_users` donne le droit
+d'ouvrir le dashboard. Les deux sont necessaires.
 
-```sql
-insert into public.admin_users (user_id, email)
-select id, email from auth.users where email = 'ton.email@exemple.at'
-on conflict (user_id) do nothing;
-```
+**Premier compte (deja prevu dans le seed) :**
 
-Sans cette ligne, aucun compte n'ouvre `/admin`.
+1. Supabase Dashboard, Authentication, Users, Add user
+   e-mail `renardiego@gmail.com`, mot de passe au choix, cocher Auto confirm
+2. Executer `supabase/seed.sql` : il rattache ce compte a `admin_users`
+
+**Comptes suivants :** onglet "Zugange" du dashboard. Le compte doit d'abord
+exister dans Auth ; le bouton appelle la fonction `grant_admin(email, nom)`,
+qui verifie que l'appelant est deja admin avant d'accorder l'acces.
+
+En mode demo, les comptes et leurs mots de passe vivent dans le `localStorage`
+et se gerent depuis le meme onglet.
 
 ### Deployer les Edge Functions
 
@@ -204,6 +224,9 @@ supabase functions deploy send-telegram-notification
 ## 7. SEO et PWA
 
 - meta description, canonical, Open Graph et Twitter Card dans `index.html`
+- `<meta name="google" content="notranslate">` : le site fournit deja DE et EN,
+  et Google Translate injecte des balises `<font>` qui empechent React de mettre
+  a jour les textes dynamiques (recapitulatif, creneaux, compteur d'etapes)
 - JSON-LD `HairSalon` + `LocalBusiness` genere dans `src/components/Seo.tsx`,
   alimente par les horaires reels de la base, avec `aggregateRating` (4,9 / 256)
   et une `ReserveAction` vers `/termin`
@@ -227,7 +250,53 @@ cd android && ./gradlew assembleDebug
 
 ---
 
-## 9. Hors scope phase 1
+## 9. Direction visuelle et medias
+
+**Palette.** Fond ivoire chaud (`--paper`), noir chaud pour les blocs sombres
+(`--carbon`), un seul accent bronze patine (`--brass`) en petites doses. Pas
+d'or sature, pas de degrade metallique : le contraste vient du contenu et de
+la photo, pas de la couleur.
+
+**Typographie.** Fraunces pour les titres (serif optique, pleins solides a
+toutes les tailles) et Manrope pour le texte courant. Le premier essai en
+Bodoni Moda a ete abandonne : ses delies disparaissent a l'ecran.
+
+**Formes.** Boutons en pilule, cartes arrondies, motif d'arche repris des
+miroirs du salon.
+
+**Langues.** Allemand par defaut, anglais en second. Le selecteur affiche de
+vrais drapeaux servis par `flagcdn.com` (Autriche pour l'allemand, Royaume-Uni
+pour l'anglais) plutot que des emojis, dont le rendu est inegal sur Windows.
+
+### Medias temporaires
+
+`public/media/` contient une video de hero et sept photos issues de la banque
+libre **Mixkit** (licence gratuite, usage commercial autorise, sans
+attribution). Elles servent de placeholders.
+
+**A remplacer avant la mise en ligne** par les vraies images du salon :
+
+| Fichier | Usage |
+| --- | --- |
+| `hero-barber.mp4` / `hero-barber-mobile.mp4` | fond video du hero |
+| `hero-poster.jpg` | affiche affichee avant le chargement de la video |
+| `salon-1..7.jpg` | galerie et photos des barbiers |
+| `craft.jpg` | visuel de la section Salon |
+
+Les chemins sont centralises dans `MEDIA` et `GALLERY` (`src/data/seed.ts`),
+et la photo de chaque barbier est editable dans l'admin.
+
+Pour reencoder une nouvelle video de hero :
+
+```bash
+ffmpeg -i source.mp4 -t 13 -an -vf "scale=1600:-2,format=yuv420p" \
+  -c:v libx264 -crf 31 -preset slow -movflags +faststart \
+  public/media/hero-barber.mp4
+```
+
+---
+
+## 10. Hors scope phase 1
 
 L'architecture les accueille sans refonte, ils ne sont pas construits :
 paiement Stripe, chatbot IA, programme de fidelite, collecte d'avis
@@ -235,16 +304,16 @@ automatisee, rappels SMS, build natif.
 
 ---
 
-## 10. A confirmer avec le client
+## 11. A confirmer avec le client
 
 Les valeurs ci-dessous sont des hypotheses de travail, editables dans l'admin
 et dans `supabase/seed.sql`.
 
 - horaires : Lu-Ve 09:00-19:00, Sa 09:00-18:00, Di ferme
 - prestations : 9 services, durees et prix estimes
-- barbiers : 3 (Ali, Mehmet, Serkan)
+- barbiers : 3 (Ali, Mehmet, Serkan), photos de placeholder
 - Impressum : les lignes `[ZU ERGANZEN]` dans `src/data/legal.ts` doivent etre
   remplies (forme juridique, Firmenbuchnummer, UID, gerant) avant toute mise en
   ligne. C'est une obligation legale en Autriche.
-- photos HD du salon, logo vectoriel, video du hero
+- photos HD du salon, logo vectoriel, video du hero tournee sur place
 - Instagram, domaine definitif, chat_id Telegram

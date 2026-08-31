@@ -2,18 +2,36 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Phone, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LANGS, LANG_LABEL } from "@/i18n";
 import { SALON } from "@/data/salon";
 import { cn } from "@/lib/utils";
 import type { OpeningHour } from "@/data/types";
 import { openStatus } from "@/lib/slots";
+import LanguageSwitcher from "./LanguageSwitcher";
 
-export function Wordmark({ compact = false }: { compact?: boolean }) {
+export function Wordmark({
+  compact = false,
+  tone = "light",
+}: {
+  compact?: boolean;
+  tone?: "light" | "dark";
+}) {
   return (
     <span className="flex flex-col leading-none">
-      <span className="font-display text-2xl tracking-[0.18em] text-bone">DEL</span>
+      <span
+        className={cn(
+          "font-display text-[26px] font-semibold tracking-[0.14em]",
+          tone === "dark" ? "text-paper" : "text-carbon",
+        )}
+      >
+        DEL
+      </span>
       {!compact ? (
-        <span className="mt-1 font-body text-[8px] uppercase tracking-brand text-brass">
+        <span
+          className={cn(
+            "mt-1 font-body text-[8px] font-semibold uppercase tracking-brand",
+            tone === "dark" ? "text-paper/60" : "text-brass",
+          )}
+        >
           Herren Friseur
         </span>
       ) : null}
@@ -22,14 +40,14 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
 }
 
 export default function Header({ openingHours }: { openingHours: OpeningHour[] }) {
-  const { t, lang, setLang } = useLanguage();
+  const { t } = useLanguage();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -61,27 +79,32 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
 
   const status = openStatus(openingHours);
 
+  // Au-dessus du hero video le header est clair sur fond sombre.
+  // Une fois passe le hero, il devient une barre ivoire.
+  const dark = !scrolled;
+
   return (
     <>
       <header
         className={cn(
           "fixed inset-x-0 top-0 z-50 transition-all duration-500",
-          scrolled
-            ? "border-b border-white/10 bg-ink/92 py-3 backdrop-blur-xl"
-            : "border-b border-transparent py-6",
+          scrolled ? "border-b border-carbon/10 bg-paper/90 py-3 backdrop-blur-xl" : "py-6",
         )}
       >
         <div className="container flex items-center justify-between gap-6">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            <Wordmark />
+            <Wordmark tone={dark ? "dark" : "light"} />
           </Link>
 
-          <nav className="hidden items-center gap-8 lg:flex">
+          <nav className="hidden items-center gap-7 lg:flex">
             {links.map((l) => (
               <button
                 key={l.id}
                 onClick={() => go(l.id)}
-                className="relative font-body text-[11px] uppercase tracking-widest text-smoke transition-colors hover:text-bone"
+                className={cn(
+                  "font-body text-[12px] font-medium tracking-wide transition-colors",
+                  dark ? "text-paper/75 hover:text-paper" : "text-stone hover:text-carbon",
+                )}
               >
                 {l.label}
               </button>
@@ -89,40 +112,39 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-1 border border-white/10 px-1 py-1 sm:flex">
-              {LANGS.map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  className={cn(
-                    "px-2 py-1 font-body text-[10px] tracking-widest transition-colors",
-                    lang === l ? "bg-bone text-ink" : "text-smoke hover:text-bone",
-                  )}
-                  aria-label={`Sprache ${LANG_LABEL[l]}`}
-                >
-                  {LANG_LABEL[l]}
-                </button>
-              ))}
+            <div className="hidden sm:block">
+              <LanguageSwitcher tone={dark ? "dark" : "light"} />
             </div>
 
             <a
               href={SALON.phoneHref}
-              className="hidden h-9 w-9 items-center justify-center border border-white/10 text-smoke transition-colors hover:border-bone/60 hover:text-bone md:flex"
+              className={cn(
+                "hidden h-10 w-10 items-center justify-center rounded-full border transition-colors md:flex",
+                dark
+                  ? "border-paper/25 text-paper/80 hover:bg-paper/10"
+                  : "border-carbon/15 text-stone hover:bg-carbon/[0.05]",
+              )}
               aria-label={t.contact.call}
             >
-              <Phone size={14} />
+              <Phone size={15} />
             </a>
 
-            <Link to="/termin" className="btn-brass hidden !px-6 !py-3 md:inline-flex">
+            <Link
+              to="/termin"
+              className={cn("hidden !px-6 !py-3 md:inline-flex", dark ? "btn-light" : "btn-solid")}
+            >
               {t.nav.book}
             </Link>
 
             <button
               onClick={() => setMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center border border-white/10 text-bone lg:hidden"
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-full border lg:hidden",
+                dark ? "border-paper/25 text-paper" : "border-carbon/15 text-carbon",
+              )}
               aria-label="Menu"
             >
-              <Menu size={16} />
+              <Menu size={17} />
             </button>
           </div>
         </div>
@@ -131,7 +153,7 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
       {/* Menu plein ecran mobile */}
       <div
         className={cn(
-          "fixed inset-0 z-[60] bg-ink transition-opacity duration-500 lg:hidden",
+          "fixed inset-0 z-[60] bg-paper transition-opacity duration-400 lg:hidden",
           menuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         )}
       >
@@ -140,20 +162,19 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
             <Wordmark />
             <button
               onClick={() => setMenuOpen(false)}
-              className="flex h-9 w-9 items-center justify-center border border-white/10 text-bone"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-carbon/15 text-carbon"
               aria-label={t.common.close}
             >
-              <X size={16} />
+              <X size={17} />
             </button>
           </div>
 
-          <nav className="mt-16 flex flex-col gap-1">
-            {links.map((l, i) => (
+          <nav className="mt-12 flex flex-col">
+            {links.map((l) => (
               <button
                 key={l.id}
                 onClick={() => go(l.id)}
-                className="border-b border-white/5 py-5 text-left font-display text-3xl text-bone"
-                style={{ transitionDelay: `${i * 40}ms` }}
+                className="border-b border-carbon/10 py-5 text-left font-display text-[28px] text-carbon"
               >
                 {l.label}
               </button>
@@ -161,28 +182,15 @@ export default function Header({ openingHours }: { openingHours: OpeningHour[] }
           </nav>
 
           <div className="mt-auto space-y-4">
-            <div className="flex items-center gap-2">
-              {LANGS.map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  className={cn(
-                    "border px-4 py-2 font-body text-[10px] tracking-widest transition-colors",
-                    lang === l ? "border-bone bg-bone text-ink" : "border-white/10 text-smoke",
-                  )}
-                >
-                  {LANG_LABEL[l]}
-                </button>
-              ))}
-            </div>
-            <p className="font-body text-[11px] uppercase tracking-widest text-smoke">
+            <LanguageSwitcher />
+            <p className="font-body text-[12px] text-stone">
               {status.open
                 ? `${t.status.openUntil} ${status.until}`
                 : status.until
                   ? `${t.status.closedUntil} ${status.until}`
                   : t.status.closedToday}
             </p>
-            <Link to="/termin" onClick={() => setMenuOpen(false)} className="btn-brass w-full">
+            <Link to="/termin" onClick={() => setMenuOpen(false)} className="btn-solid w-full">
               {t.nav.book}
             </Link>
           </div>

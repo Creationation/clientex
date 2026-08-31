@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Reveal, SectionHead } from "@/components/ui/Primitives";
 import type { Service } from "@/data/types";
@@ -7,9 +8,7 @@ import { formatPrice } from "@/lib/utils";
 const GROUP_ORDER: Service["category"][] = ["hair", "beard", "shave", "extra"];
 
 export function serviceName(s: Service, lang: string): string {
-  if (lang === "en") return s.name_en || s.name_de;
-  if (lang === "tr") return s.name_tr || s.name_de;
-  return s.name_de;
+  return lang === "en" ? s.name_en || s.name_de : s.name_de;
 }
 
 export default function Services({ services }: { services: Service[] }) {
@@ -22,57 +21,57 @@ export default function Services({ services }: { services: Service[] }) {
   })).filter((g) => g.items.length > 0);
 
   return (
-    <section id="leistungen" className="relative border-t border-white/[0.07] py-28 md:py-36">
+    <section id="leistungen" className="bg-paper py-24 md:py-32">
       <div className="container">
-        <div className="grid gap-14 lg:grid-cols-[0.9fr_1.4fr] lg:gap-24">
-          <div className="lg:sticky lg:top-32 lg:self-start">
-            <SectionHead
-              eyebrow={t.services.eyebrow}
-              title={
-                <>
-                  {t.services.title}
-                  <span className="text-brass">.</span>
-                </>
-              }
-              sub={t.services.sub}
-            />
-            <Reveal delay={120} className="mt-10">
-              <Link to="/termin" className="btn-brass">
+        <div className="grid gap-12 lg:grid-cols-[0.85fr_1.35fr] lg:gap-20">
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <SectionHead eyebrow={t.services.eyebrow} title={t.services.title} sub={t.services.sub} />
+            <Reveal delay={100} className="mt-8">
+              <Link to="/termin" className="btn-solid">
                 {t.nav.book}
               </Link>
+              <p className="mt-4 max-w-xs font-body text-[13px] leading-relaxed text-stone">
+                {t.services.multiHint}
+              </p>
             </Reveal>
           </div>
 
-          <div className="space-y-14">
+          <div className="space-y-10">
             {groups.map((group, gi) => (
-              <Reveal key={group.key} delay={gi * 80}>
-                <h3 className="flex items-center gap-4 font-body text-[10px] uppercase tracking-brand text-brass">
+              <Reveal key={group.key} delay={gi * 70}>
+                <h3 className="flex items-center gap-4 font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
                   {group.label}
-                  <span className="h-px flex-1 bg-white/[0.08]" />
+                  <span className="h-px flex-1 bg-carbon/10" />
                 </h3>
 
-                <ul className="mt-6">
+                <ul className="mt-4 space-y-2">
                   {group.items.map((s) => (
-                    <li key={s.id} className="group border-b border-white/[0.07]">
+                    <li key={s.id}>
                       <Link
                         to={`/termin?service=${s.id}`}
-                        className="flex items-baseline gap-4 py-5 transition-colors hover:bg-white/[0.02]"
+                        className="group flex items-center gap-4 rounded-2xl border border-carbon/10 bg-white px-5 py-4 transition-all duration-300 hover:border-carbon/25 hover:shadow-soft"
                       >
-                        <span className="font-display text-lg text-bone transition-colors group-hover:text-brass-light md:text-xl">
-                          {serviceName(s, lang)}
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-display text-[19px] font-medium text-carbon">
+                            {serviceName(s, lang)}
+                          </span>
+                          <span className="mt-0.5 block font-body text-[12px] text-stone">
+                            {s.duration_min} {t.common.min}
+                          </span>
                         </span>
-                        <span className="hidden flex-1 translate-y-[-4px] border-b border-dotted border-white/15 sm:block" />
-                        <span className="font-body text-[11px] uppercase tracking-widest text-smoke">
-                          {s.duration_min} {t.common.min}
-                        </span>
-                        <span className="ml-4 min-w-[68px] text-right font-display text-lg text-bone md:text-xl">
+                        <span className="shrink-0 text-right font-display text-[19px] font-semibold text-carbon">
                           {s.is_from_price ? (
-                            <span className="mr-1 font-body text-[10px] uppercase tracking-widest text-smoke">
+                            <span className="mr-1 font-body text-[11px] font-medium text-stone">
                               {t.common.from}
                             </span>
                           ) : null}
                           {formatPrice(s.price)}
-                          <span className="ml-1 text-xs text-smoke">EUR</span>
+                          <span className="ml-1 font-body text-[12px] font-medium text-stone">
+                            EUR
+                          </span>
+                        </span>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-carbon/12 text-carbon transition-colors group-hover:bg-carbon group-hover:text-paper">
+                          <ArrowUpRight size={14} />
                         </span>
                       </Link>
                     </li>

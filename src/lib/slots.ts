@@ -18,14 +18,15 @@ export interface Slot {
 }
 
 /**
- * Genere les creneaux de debut possibles pour une date, un barbier et une duree.
+ * Genere les creneaux de debut possibles pour une date, un barbier et une
+ * duree totale (somme des prestations choisies).
  *
  * Regles appliquees :
- *  - le service doit tenir entierement dans l'amplitude d'ouverture du jour
+ *  - le rendez-vous doit tenir entierement dans l'amplitude d'ouverture
  *  - un rendez-vous existant bloque tout son intervalle [debut, fin + buffer),
  *    pas uniquement son heure de debut
  *  - les blocages manuels et les conges bloquent leur intervalle
- *  - un blocage sans barbier (barber_id null) vaut pour tout le salon
+ *  - un blocage sans barbier vaut pour tout le salon
  *  - les creneaux trop proches (delai minimum) sont retires
  */
 export function buildSlots(ctx: SlotContext): Slot[] {

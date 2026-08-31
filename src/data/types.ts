@@ -1,4 +1,4 @@
-export type Lang = "de" | "en" | "tr";
+export type Lang = "de" | "en";
 
 export type BookingStatus = "pending" | "confirmed" | "done" | "no_show" | "cancelled";
 
@@ -7,7 +7,6 @@ export interface Service {
   slug: string;
   name_de: string;
   name_en: string;
-  name_tr: string;
   duration_min: number;
   price: number;
   is_from_price: boolean;
@@ -21,14 +20,13 @@ export interface Barber {
   name: string;
   role_de: string;
   role_en: string;
-  role_tr: string;
   image_url: string | null;
   initials: string;
   sort_order: number;
   active: boolean;
 }
 
-/** weekday follows JS getDay(): 0 = Sonntag ... 6 = Samstag */
+/** weekday suit getDay() : 0 = dimanche ... 6 = samedi */
 export interface OpeningHour {
   weekday: number;
   is_open: boolean;
@@ -39,12 +37,13 @@ export interface OpeningHour {
 export interface Booking {
   id: string;
   barber_id: string | null;
-  service_id: string;
+  /** Un rendez-vous peut combiner plusieurs prestations. */
+  service_ids: string[];
   booking_date: string; // YYYY-MM-DD
   start_time: string;   // HH:MM
   end_time: string;     // HH:MM
-  duration_min: number;
-  price: number;
+  duration_min: number; // somme des prestations
+  price: number;        // somme des prestations
   status: BookingStatus;
   client_name: string;
   client_email: string;
@@ -75,7 +74,7 @@ export interface Settings {
 
 export interface NewBookingInput {
   barber_id: string | null;
-  service_id: string;
+  service_ids: string[];
   booking_date: string;
   start_time: string;
   client_name: string;
@@ -94,4 +93,12 @@ export interface BusySlot {
   booking_date: string;
   start_time: string;
   end_time: string;
+}
+
+/** Compte autorise a ouvrir le dashboard. */
+export interface AdminAccount {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
 }

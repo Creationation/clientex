@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Plus, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSalonData } from "@/hooks/useSalonData";
 import { db } from "@/lib/db";
@@ -20,7 +20,10 @@ export default function Booking() {
   const { services, barbers, openingHours, settings, loading } = useSalonData();
 
   const [step, setStep] = useState(0);
-  const [serviceId, setServiceId] = useState<string>(params.get("service") ?? "");
+  const [serviceIds, setServiceIds] = useState<string[]>(() => {
+    const preset = params.get("service");
+    return preset ? [preset] : [];
+  });
   const [barberId, setBarberId] = useState<string | null>(params.get("barber"));
   const [barberTouched, setBarberTouched] = useState(Boolean(params.get("barber")));
   const [dateKey, setDateKey] = useState<string>("");
@@ -38,8 +41,18 @@ export default function Booking() {
   const [error, setError] = useState<string | null>(null);
   const [dateOffset, setDateOffset] = useState(0);
 
-  const service: Service | undefined = services.find((s) => s.id === serviceId);
+  const selected: Service[] = serviceIds
+    .map((id) => services.find((s) => s.id === id))
+    .filter((s): s is Service => Boolean(s));
+
+  const totalDuration = selected.reduce((sum, s) => sum + s.duration_min, 0);
+  const totalPrice = selected.reduce((sum, s) => sum + s.price, 0);
   const barber: Barber | undefined = barbers.find((b) => b.id === barberId);
+
+  const toggleService = (id: string) => {
+    setTime("");
+    setServiceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -60,7 +73,7 @@ export default function Booking() {
     if (!dateKey && availableDates.length > 0) setDateKey(toDateKey(availableDates[0]));
   }, [availableDates, dateKey]);
 
-  /* Chargement des reservations et blocages du jour selectionne */
+  /* Chargement des creneaux occupes du jour selectionne */
   useEffect(() => {
     if (!dateKey) return;
     let cancelled = false;
@@ -86,19 +99,19 @@ export default function Booking() {
   }, [dateKey, step]);
 
   const slots = useMemo(() => {
-    if (!service || !dateKey) return [];
+    if (totalDuration === 0 || !dateKey) return [];
     const date = availableDates.find((d) => toDateKey(d) === dateKey);
     if (!date) return [];
     return buildSlots({
       date,
-      durationMin: service.duration_min,
+      durationMin: totalDuration,
       barberId,
       openingHours,
       busy: dayBusy,
       blocked: dayBlocked,
       settings,
     });
-  }, [service, dateKey, barberId, openingHours, dayBusy, dayBlocked, settings, availableDates]);
+  }, [totalDuration, dateKey, barberId, openingHours, dayBusy, dayBlocked, settings, availableDates]);
 
   const grouped = useMemo(() => {
     const morning = slots.filter((s) => toMinutes(s.time) < 12 * 60);
@@ -116,22 +129,22 @@ export default function Booking() {
   const hasFreeSlot = slots.some((s) => s.available);
 
   const canContinue = (() => {
-    if (step === 0) return Boolean(serviceId);
+    if (step === 0) return selected.length > 0;
     if (step === 1) return barberTouched;
     if (step === 2) return Boolean(dateKey);
     if (step === 3) return Boolean(time);
     return false;
   })();
 
-  const validDetails =
-    name.trim().length >= 2 && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim()) && phone.trim().length >= 6;
+  const emailOk = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(value.trim());
+  const validDetails = name.trim().length >= 2 && emailOk(email) && phone.trim().length >= 6;
 
   const submit = async () => {
-    if (!service || !dateKey || !time) return;
+    if (selected.length === 0 || !dateKey || !time) return;
     setError(null);
     if (!validDetails) {
       if (name.trim().length < 2) setError(t.booking.invalidName);
-      else if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())) setError(t.booking.invalidEmail);
+      else if (!emailOk(email)) setError(t.booking.invalidEmail);
       else setError(t.booking.invalidPhone);
       return;
     }
@@ -139,7 +152,7 @@ export default function Booking() {
     try {
       const booking = await db.createBooking({
         barber_id: barberId,
-        service_id: service.id,
+        service_ids: selected.map((s) => s.id),
         booking_date: dateKey,
         start_time: time,
         client_name: name.trim(),
@@ -151,9 +164,7 @@ export default function Booking() {
       navigate("/termin/bestaetigt", {
         state: {
           booking,
-          serviceLabel: serviceName(service, lang),
-          // Le barbier definitif est celui renvoye par le serveur : en mode
-          // "egal wer" il est affecte a la creation.
+          serviceLabel: selected.map((s) => serviceName(s, lang)).join(" + "),
           barberLabel:
             barbers.find((b) => b.id === booking.barber_id)?.name ??
             barber?.name ??
@@ -172,85 +183,101 @@ export default function Booking() {
   const dateWindow = availableDates.slice(dateOffset, dateOffset + 7);
 
   return (
-    <div className="min-h-screen bg-marble">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink/92 backdrop-blur-xl">
+    <div className="min-h-screen bg-paper-soft pb-28 md:pb-0">
+      <header className="sticky top-0 z-40 border-b border-carbon/10 bg-paper/92 backdrop-blur-xl">
         <div className="container flex items-center justify-between py-4">
-          <Link to="/" className="flex items-center gap-3 text-smoke transition-colors hover:text-bone">
-            <ArrowLeft size={16} />
+          <Link
+            to="/"
+            className="flex items-center gap-3 text-stone transition-colors hover:text-carbon"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-full border border-carbon/12">
+              <ArrowLeft size={15} />
+            </span>
             <Wordmark compact />
           </Link>
-          <span className="font-body text-[10px] uppercase tracking-brand text-brass">
+          <span className="font-body text-[11px] font-semibold uppercase tracking-widest text-stone">
             {t.booking.stepLabel} {step + 1} {t.booking.of} 5
           </span>
         </div>
-        <div className="h-px w-full bg-white/[0.07]">
+        <div className="h-[3px] w-full bg-carbon/[0.07]">
           <div
-            className="h-px bg-bone transition-all duration-500"
+            className="h-[3px] rounded-r-full bg-carbon transition-all duration-500"
             style={{ width: `${((step + 1) / 5) * 100}%` }}
           />
         </div>
       </header>
 
-      <main className="container grid gap-12 py-12 lg:grid-cols-[1.5fr_0.85fr] lg:gap-20 lg:py-20">
+      <main className="container grid gap-10 py-10 lg:grid-cols-[1.5fr_0.8fr] lg:gap-16 lg:py-16">
         <div>
           {/* Fil des etapes */}
-          <ol className="mb-10 hidden flex-wrap items-center gap-x-3 gap-y-2 md:flex">
+          <ol className="mb-8 hidden flex-wrap items-center gap-x-2 gap-y-2 md:flex">
             {STEPS.map((s) => (
-              <li key={s} className="flex items-center gap-3">
+              <li key={s} className="flex items-center gap-2">
                 <button
                   disabled={s > step}
                   onClick={() => s < step && setStep(s)}
                   className={cn(
-                    "font-body text-[10px] uppercase tracking-widest transition-colors",
-                    s === step ? "text-brass" : s < step ? "text-bone hover:text-brass" : "text-smoke/40",
+                    "rounded-full px-3 py-1.5 font-body text-[11px] font-semibold uppercase tracking-widest transition-colors",
+                    s === step
+                      ? "bg-carbon text-paper"
+                      : s < step
+                        ? "text-carbon hover:bg-carbon/[0.06]"
+                        : "text-stone/45",
                   )}
                 >
                   {t.booking.steps[s]}
                 </button>
-                {s < 4 ? <span className="h-px w-6 bg-white/10" /> : null}
+                {s < 4 ? <span className="h-px w-4 bg-carbon/15" /> : null}
               </li>
             ))}
           </ol>
 
           {loading ? (
-            <p className="flex items-center gap-3 text-smoke">
+            <p className="flex items-center gap-3 text-stone">
               <Loader2 size={16} className="animate-spin" /> {t.common.loading}
             </p>
           ) : null}
 
-          {/* Etape 0 : leistung */}
+          {/* Etape 0 : une ou plusieurs prestations */}
           {step === 0 && !loading ? (
             <section>
               <StepHead title={t.booking.chooseService} sub={t.booking.chooseServiceSub} />
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 {services.map((s) => {
-                  const active = s.id === serviceId;
+                  const active = serviceIds.includes(s.id);
                   return (
                     <button
                       key={s.id}
-                      onClick={() => {
-                        setServiceId(s.id);
-                        setTime("");
-                        setStep(1);
-                      }}
+                      onClick={() => toggleService(s.id)}
+                      aria-pressed={active}
                       className={cn(
-                        "group flex items-start justify-between gap-4 border p-5 text-left transition-all duration-300",
+                        "group flex items-center gap-4 rounded-2xl border bg-white p-5 text-left transition-all duration-200",
                         active
-                          ? "border-bone/70 bg-bone/[0.04]"
-                          : "border-white/10 bg-ink-soft hover:border-bone/35",
+                          ? "border-carbon shadow-soft"
+                          : "border-carbon/12 hover:border-carbon/30",
                       )}
                     >
-                      <span>
-                        <span className="block font-display text-lg text-bone">
+                      <span
+                        className={cn(
+                          "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+                          active
+                            ? "border-carbon bg-carbon text-paper"
+                            : "border-carbon/20 text-carbon/40",
+                        )}
+                      >
+                        {active ? <Check size={15} /> : <Plus size={15} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-display text-[18px] font-medium text-carbon">
                           {serviceName(s, lang)}
                         </span>
-                        <span className="mt-1 block font-body text-[10px] uppercase tracking-widest text-smoke">
+                        <span className="mt-0.5 block font-body text-[12px] text-stone">
                           {s.duration_min} {t.common.min}
                         </span>
                       </span>
-                      <span className="shrink-0 font-display text-lg text-bone">
+                      <span className="shrink-0 font-display text-[18px] font-semibold text-carbon">
                         {formatPrice(s.price)}
-                        <span className="ml-1 text-[10px]">EUR</span>
+                        <span className="ml-1 font-body text-[11px] font-medium text-stone">EUR</span>
                       </span>
                     </button>
                   );
@@ -263,62 +290,34 @@ export default function Booking() {
           {step === 1 && !loading ? (
             <section>
               <StepHead title={t.booking.chooseBarber} sub={t.booking.chooseBarberSub} />
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <button
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <ChoiceCard
+                  active={barberTouched && barberId === null}
                   onClick={() => {
                     setBarberId(null);
                     setBarberTouched(true);
                     setTime("");
                     setStep(2);
                   }}
-                  className={cn(
-                    "flex items-center gap-4 border p-5 text-left transition-all duration-300",
-                    barberTouched && barberId === null
-                      ? "border-bone/70 bg-bone/[0.04]"
-                      : "border-white/10 bg-ink-soft hover:border-bone/35",
-                  )}
-                >
-                  <span className="grid h-12 w-12 shrink-0 place-items-center border border-white/15 font-display text-lg text-bone/80">
-                    ?
-                  </span>
-                  <span>
-                    <span className="block font-display text-lg text-bone">{t.team.anyBarber}</span>
-                    <span className="mt-0.5 block font-body text-[10px] uppercase tracking-widest text-smoke">
-                      {t.team.anyBarberDesc}
-                    </span>
-                  </span>
-                </button>
-
-                {barbers.map((b) => {
-                  const active = barberId === b.id;
-                  return (
-                    <button
-                      key={b.id}
-                      onClick={() => {
-                        setBarberId(b.id);
-                        setBarberTouched(true);
-                        setTime("");
-                        setStep(2);
-                      }}
-                      className={cn(
-                        "flex items-center gap-4 border p-5 text-left transition-all duration-300",
-                        active
-                          ? "border-bone/70 bg-bone/[0.04]"
-                          : "border-white/10 bg-ink-soft hover:border-bone/35",
-                      )}
-                    >
-                      <span className="grid h-12 w-12 shrink-0 place-items-center border border-white/15 font-display text-lg text-bone/80">
-                        {b.initials}
-                      </span>
-                      <span>
-                        <span className="block font-display text-lg text-bone">{b.name}</span>
-                        <span className="mt-0.5 block font-body text-[10px] uppercase tracking-widest text-smoke">
-                          {barberRole(b, lang)}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
+                  badge="?"
+                  title={t.team.anyBarber}
+                  sub={t.team.anyBarberDesc}
+                />
+                {barbers.map((b) => (
+                  <ChoiceCard
+                    key={b.id}
+                    active={barberId === b.id}
+                    onClick={() => {
+                      setBarberId(b.id);
+                      setBarberTouched(true);
+                      setTime("");
+                      setStep(2);
+                    }}
+                    badge={b.initials}
+                    title={b.name}
+                    sub={barberRole(b, lang)}
+                  />
+                ))}
               </div>
             </section>
           ) : null}
@@ -327,11 +326,11 @@ export default function Booking() {
           {step === 2 && !loading ? (
             <section>
               <StepHead title={t.booking.chooseDate} sub={t.booking.chooseDateSub} />
-              <div className="mt-8 flex items-center gap-3">
+              <div className="mt-7 flex items-center gap-2">
                 <button
                   disabled={dateOffset === 0}
                   onClick={() => setDateOffset((o) => Math.max(0, o - 7))}
-                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-bone/50 hover:text-bone disabled:opacity-30"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-carbon/15 text-carbon transition-colors hover:bg-carbon/[0.05] disabled:opacity-30"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -349,21 +348,27 @@ export default function Booking() {
                           setStep(3);
                         }}
                         className={cn(
-                          "flex flex-col items-center gap-1 border py-4 transition-all duration-300",
+                          "flex flex-col items-center gap-0.5 rounded-2xl border py-4 transition-all duration-200",
                           active
-                            ? "border-bone/70 bg-bone/[0.04]"
-                            : "border-white/10 bg-ink-soft hover:border-bone/35",
+                            ? "border-carbon bg-carbon text-paper shadow-soft"
+                            : "border-carbon/12 bg-white hover:border-carbon/30",
                         )}
                       >
-                        <span className="font-body text-[10px] uppercase tracking-widest text-smoke">
+                        <span
+                          className={cn(
+                            "font-body text-[11px] font-semibold uppercase tracking-widest",
+                            active ? "text-paper/70" : "text-stone",
+                          )}
+                        >
                           {t.hours.daysShort[d.getDay()]}
                         </span>
+                        <span className="font-display text-[22px] font-semibold">{d.getDate()}</span>
                         <span
-                          className={cn("font-display text-2xl", active ? "text-bone" : "text-bone/70")}
+                          className={cn(
+                            "font-body text-[10px] uppercase tracking-widest",
+                            active ? "text-paper/60" : "text-stone/70",
+                          )}
                         >
-                          {d.getDate()}
-                        </span>
-                        <span className="font-body text-[9px] uppercase tracking-widest text-smoke/70">
                           {d.toLocaleDateString(lang, { month: "short" })}
                         </span>
                       </button>
@@ -374,7 +379,7 @@ export default function Booking() {
                 <button
                   disabled={dateOffset + 7 >= availableDates.length}
                   onClick={() => setDateOffset((o) => o + 7)}
-                  className="grid h-11 w-11 shrink-0 place-items-center border border-white/10 text-smoke transition-colors hover:border-bone/50 hover:text-bone disabled:opacity-30"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-carbon/15 text-carbon transition-colors hover:bg-carbon/[0.05] disabled:opacity-30"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -387,26 +392,28 @@ export default function Booking() {
             <section>
               <StepHead title={t.booking.chooseTime} sub={t.booking.chooseTimeSub} />
               {slotsLoading ? (
-                <p className="mt-8 flex items-center gap-3 text-smoke">
+                <p className="mt-7 flex items-center gap-3 text-stone">
                   <Loader2 size={16} className="animate-spin" /> {t.common.loading}
                 </p>
               ) : !hasFreeSlot ? (
-                <div className="mt-8 border border-white/10 bg-ink-soft p-8 text-center">
-                  <p className="font-display text-xl text-bone">{t.booking.noSlots}</p>
-                  <p className="mt-2 text-sm text-smoke">{t.booking.pickAnother}</p>
+                <div className="mt-7 rounded-2xl border border-carbon/12 bg-white p-8 text-center">
+                  <p className="font-display text-[20px] font-medium text-carbon">
+                    {t.booking.noSlots}
+                  </p>
+                  <p className="mt-2 text-[14px] text-stone">{t.booking.pickAnother}</p>
                   <button onClick={() => setStep(2)} className="btn-ghost mt-6">
                     {t.booking.steps[2]}
                   </button>
                 </div>
               ) : (
-                <div className="mt-8 space-y-8">
+                <div className="mt-7 space-y-7">
                   {grouped.map((group) => (
                     <div key={group.label}>
-                      <h3 className="flex items-center gap-4 font-body text-[10px] uppercase tracking-brand text-brass">
+                      <h3 className="flex items-center gap-4 font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
                         {group.label}
-                        <span className="h-px flex-1 bg-white/[0.08]" />
+                        <span className="h-px flex-1 bg-carbon/10" />
                       </h3>
-                      <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
                         {group.items.map((s) => (
                           <button
                             key={s.time}
@@ -416,12 +423,12 @@ export default function Booking() {
                               setStep(4);
                             }}
                             className={cn(
-                              "border py-3 font-body text-[13px] tracking-wide transition-all duration-200",
+                              "rounded-full border py-2.5 font-body text-[14px] font-medium tabular-nums transition-all duration-150",
                               time === s.time
-                                ? "border-bone bg-bone text-ink"
+                                ? "border-carbon bg-carbon text-paper"
                                 : s.available
-                                  ? "border-white/10 bg-ink-soft text-bone hover:border-bone/40 hover:text-bone"
-                                  : "cursor-not-allowed border-white/[0.04] bg-transparent text-smoke/25 line-through",
+                                  ? "border-carbon/12 bg-white text-carbon hover:border-carbon/40"
+                                  : "cursor-not-allowed border-transparent bg-carbon/[0.04] text-stone/35",
                             )}
                           >
                             {s.time}
@@ -439,7 +446,7 @@ export default function Booking() {
           {step === 4 && !loading ? (
             <section>
               <StepHead title={t.booking.yourDetails} sub={t.booking.yourDetailsSub} />
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="mt-7 grid gap-4 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                   <span className="eyebrow">{t.booking.name}</span>
                   <input
@@ -481,12 +488,12 @@ export default function Booking() {
               </div>
 
               {error ? (
-                <p className="mt-5 border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-bone">
+                <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/[0.07] px-4 py-3 text-[14px] text-destructive">
                   {error}
                 </p>
               ) : null}
 
-              <button onClick={submit} disabled={saving} className="btn-brass mt-8 w-full sm:w-auto">
+              <button onClick={submit} disabled={saving} className="btn-solid mt-7 w-full sm:w-auto">
                 {saving ? (
                   <>
                     <Loader2 size={14} className="animate-spin" /> {t.booking.submitting}
@@ -497,7 +504,7 @@ export default function Booking() {
                   </>
                 )}
               </button>
-              <p className="mt-4 max-w-md text-[12px] font-light leading-relaxed text-smoke">
+              <p className="mt-4 max-w-md text-[13px] leading-relaxed text-stone">
                 {t.booking.policy}
               </p>
             </section>
@@ -506,7 +513,7 @@ export default function Booking() {
           {step > 0 ? (
             <button
               onClick={() => setStep((s) => Math.max(0, s - 1))}
-              className="mt-12 flex items-center gap-2 font-body text-[11px] uppercase tracking-widest text-smoke transition-colors hover:text-brass"
+              className="mt-10 inline-flex items-center gap-2 font-body text-[12px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-carbon"
             >
               <ChevronLeft size={14} /> {t.common.back}
             </button>
@@ -514,11 +521,43 @@ export default function Booking() {
         </div>
 
         {/* Recapitulatif */}
-        <aside className="lg:sticky lg:top-32 lg:self-start">
-          <div className="border border-white/10 bg-ink-soft p-6">
+        <aside className="lg:sticky lg:top-28 lg:self-start">
+          <div className="rounded-3xl border border-carbon/10 bg-white p-6 shadow-soft">
             <p className="eyebrow">{t.booking.summary}</p>
-            <dl className="mt-6 space-y-4">
-              <Row label={t.booking.service} value={service ? serviceName(service, lang) : "-"} />
+
+            <div className="mt-5 space-y-2">
+              {selected.length === 0 ? (
+                <p className="font-body text-[13px] text-stone">{t.booking.noServiceYet}</p>
+              ) : (
+                selected.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-3 rounded-xl bg-paper-soft px-3 py-2.5"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-body text-[14px] font-medium text-carbon">
+                        {serviceName(s, lang)}
+                      </span>
+                      <span className="font-body text-[11px] text-stone">
+                        {s.duration_min} {t.common.min}
+                      </span>
+                    </span>
+                    <span className="font-body text-[14px] font-semibold text-carbon">
+                      {formatPrice(s.price)}
+                    </span>
+                    <button
+                      onClick={() => toggleService(s.id)}
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-stone transition-colors hover:bg-carbon/10 hover:text-carbon"
+                      aria-label={t.common.delete}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <dl className="mt-5 space-y-3 border-t border-carbon/10 pt-5">
               <Row
                 label={t.booking.barber}
                 value={barberTouched ? (barber ? barber.name : t.team.anyBarber) : "-"}
@@ -538,25 +577,42 @@ export default function Booking() {
               <Row label={t.booking.time} value={time || "-"} />
               <Row
                 label={t.booking.duration}
-                value={service ? `${service.duration_min} ${t.common.min}` : "-"}
+                value={totalDuration ? `${totalDuration} ${t.common.min}` : "-"}
               />
             </dl>
-            <div className="mt-6 flex items-baseline justify-between border-t border-white/10 pt-5">
+
+            <div className="mt-5 flex items-baseline justify-between border-t border-carbon/10 pt-5">
               <span className="eyebrow">{t.booking.total}</span>
-              <span className="font-display text-3xl text-bone">
-                {service ? formatPrice(service.price) : "0"}
-                <span className="ml-1 text-sm text-smoke">EUR</span>
+              <span className="font-display text-[30px] font-semibold text-carbon">
+                {formatPrice(totalPrice)}
+                <span className="ml-1 font-body text-[14px] font-medium text-stone">EUR</span>
               </span>
             </div>
-          </div>
 
-          {canContinue && step < 4 ? (
-            <button onClick={() => setStep((s) => Math.min(4, s + 1))} className="btn-brass mt-4 w-full">
-              {t.common.next}
-            </button>
-          ) : null}
+            {canContinue && step < 4 ? (
+              <button
+                onClick={() => setStep((s) => Math.min(4, s + 1))}
+                className="btn-solid mt-5 w-full"
+              >
+                {t.booking.continueBtn}
+              </button>
+            ) : null}
+          </div>
         </aside>
       </main>
+
+      {/* Barre de progression mobile */}
+      {canContinue && step < 4 ? (
+        <div className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
+          <button
+            onClick={() => setStep((s) => Math.min(4, s + 1))}
+            className="btn-solid w-full shadow-lift"
+          >
+            {t.booking.continueBtn}
+            {totalPrice > 0 ? ` · ${formatPrice(totalPrice)} EUR` : ""}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -564,19 +620,56 @@ export default function Booking() {
 function StepHead({ title, sub }: { title: string; sub: string }) {
   return (
     <div>
-      <h1 className="font-display text-[clamp(1.9rem,4.5vw,2.9rem)] leading-tight text-bone">
+      <h1 className="font-display text-[clamp(1.8rem,4vw,2.6rem)] font-semibold leading-tight text-carbon">
         {title}
       </h1>
-      <p className="mt-3 max-w-lg text-sm font-light text-smoke">{sub}</p>
+      <p className="mt-2 max-w-lg text-[15px] text-stone">{sub}</p>
     </div>
+  );
+}
+
+function ChoiceCard({
+  active,
+  onClick,
+  badge,
+  title,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  badge: string;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left transition-all duration-200",
+        active ? "border-carbon shadow-soft" : "border-carbon/12 hover:border-carbon/30",
+      )}
+    >
+      <span
+        className={cn(
+          "grid h-12 w-12 shrink-0 place-items-center rounded-full border font-display text-[18px] font-semibold",
+          active ? "border-carbon bg-carbon text-paper" : "border-carbon/15 text-carbon",
+        )}
+      >
+        {badge}
+      </span>
+      <span>
+        <span className="block font-display text-[18px] font-medium text-carbon">{title}</span>
+        <span className="mt-0.5 block font-body text-[12px] text-stone">{sub}</span>
+      </span>
+    </button>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="font-body text-[10px] uppercase tracking-widest text-smoke">{label}</dt>
-      <dd className="text-right font-body text-sm text-bone">{value}</dd>
+      <dt className="font-body text-[12px] text-stone">{label}</dt>
+      <dd className="text-right font-body text-[14px] font-medium text-carbon">{value}</dd>
     </div>
   );
 }

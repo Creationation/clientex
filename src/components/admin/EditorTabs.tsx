@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { Barber, BlockedSlot, OpeningHour, Service, Settings } from "@/data/types";
+import type {
+  AdminAccount, Barber, BlockedSlot, OpeningHour, Service, Settings,
+} from "@/data/types";
 import { db } from "@/lib/db";
 import { cn, toDateKey, uid } from "@/lib/utils";
-import { Empty, Field } from "./shared";
+import { Empty, Field, Toggle } from "./shared";
+
+const DeleteButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-carbon/12 text-stone transition-colors hover:border-destructive/50 hover:text-destructive"
+  >
+    <Trash2 size={15} />
+  </button>
+);
 
 /* ------------------------------ Leistungen ------------------------------ */
 
@@ -12,72 +23,55 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
   const { t } = useLanguage();
   const [draft, setDraft] = useState<Service[]>(services);
 
+  useEffect(() => setDraft(services), [services]);
+
   const patch = (id: string, p: Partial<Service>) =>
     setDraft((d) => d.map((s) => (s.id === id ? { ...s, ...p } : s)));
 
-  const save = async (s: Service) => {
-    await db.saveService(s);
-    reload();
-  };
-
-  const remove = async (id: string) => {
-    if (!window.confirm(t.admin.confirmDelete)) return;
-    await db.deleteService(id);
-    setDraft((d) => d.filter((s) => s.id !== id));
-    reload();
-  };
-
-  const add = () => {
-    const s: Service = {
-      id: uid("svc"),
-      slug: "neu",
-      name_de: "Neue Leistung",
-      name_en: "New service",
-      name_tr: "Yeni hizmet",
-      duration_min: 30,
-      price: 20,
-      is_from_price: false,
-      category: "hair",
-      sort_order: draft.length + 1,
-      active: true,
-    };
-    setDraft((d) => [...d, s]);
-  };
+  const add = () =>
+    setDraft((d) => [
+      ...d,
+      {
+        id: uid("svc"),
+        slug: `neu-${d.length + 1}`,
+        name_de: "Neue Leistung",
+        name_en: "New service",
+        duration_min: 30,
+        price: 20,
+        is_from_price: false,
+        category: "hair",
+        sort_order: d.length + 1,
+        active: true,
+      },
+    ]);
 
   return (
     <div className="space-y-3">
       <button onClick={add} className="btn-ghost !px-5 !py-2.5">
-        <Plus size={13} /> {t.admin.newService}
+        <Plus size={14} /> {t.admin.newService}
       </button>
 
       {draft.map((s) => (
-        <div key={s.id} className="border border-white/10 bg-ink p-4">
+        <div key={s.id} className="rounded-2xl border border-carbon/10 bg-paper-soft p-4">
           <div className="grid gap-3 md:grid-cols-6">
-            <Field label="DE" className="md:col-span-2">
+            <Field label="Deutsch" className="md:col-span-3">
               <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.name_de}
                 onChange={(e) => patch(s.id, { name_de: e.target.value })}
               />
             </Field>
-            <Field label="EN" className="md:col-span-2">
+            <Field label="English" className="md:col-span-3">
               <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.name_en}
                 onChange={(e) => patch(s.id, { name_en: e.target.value })}
-              />
-            </Field>
-            <Field label="TR" className="md:col-span-2">
-              <input
-                className="field !py-2"
-                value={s.name_tr}
-                onChange={(e) => patch(s.id, { name_tr: e.target.value })}
               />
             </Field>
             <Field label={t.admin.durationMin}>
               <input
                 type="number"
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.duration_min}
                 onChange={(e) => patch(s.id, { duration_min: Number(e.target.value) })}
               />
@@ -85,14 +79,14 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
             <Field label={t.admin.priceEur}>
               <input
                 type="number"
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.price}
                 onChange={(e) => patch(s.id, { price: Number(e.target.value) })}
               />
             </Field>
             <Field label={t.services.eyebrow}>
               <select
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.category}
                 onChange={(e) => patch(s.id, { category: e.target.value as Service["category"] })}
               >
@@ -106,30 +100,34 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
             <Field label={t.admin.sortOrder}>
               <input
                 type="number"
-                className="field !py-2"
+                className="field !py-2.5"
                 value={s.sort_order}
                 onChange={(e) => patch(s.id, { sort_order: Number(e.target.value) })}
               />
             </Field>
             <div className="flex items-end gap-2 md:col-span-2">
-              <button
+              <Toggle
+                on={s.active}
                 onClick={() => patch(s.id, { active: !s.active })}
-                className={cn(
-                  "border px-3 py-2 font-body text-[10px] uppercase tracking-widest",
-                  s.active ? "border-success/50 text-success" : "border-white/15 text-smoke",
-                )}
+                labelOn={t.admin.active}
+                labelOff={t.admin.inactive}
+              />
+              <button
+                onClick={async () => {
+                  await db.saveService(s);
+                  reload();
+                }}
+                className="btn-solid !px-5 !py-2.5"
               >
-                {s.active ? t.admin.active : t.admin.inactive}
-              </button>
-              <button onClick={() => save(s)} className="btn-brass !px-5 !py-2.5">
                 {t.common.save}
               </button>
-              <button
-                onClick={() => remove(s.id)}
-                className="grid h-10 w-10 place-items-center border border-white/10 text-smoke hover:border-destructive hover:text-destructive"
-              >
-                <Trash2 size={14} />
-              </button>
+              <DeleteButton
+                onClick={async () => {
+                  if (!window.confirm(t.admin.confirmDelete)) return;
+                  await db.deleteService(s.id);
+                  reload();
+                }}
+              />
             </div>
           </div>
         </div>
@@ -144,6 +142,8 @@ export function BarbersTab({ barbers, reload }: { barbers: Barber[]; reload: () 
   const { t } = useLanguage();
   const [draft, setDraft] = useState<Barber[]>(barbers);
 
+  useEffect(() => setDraft(barbers), [barbers]);
+
   const patch = (id: string, p: Partial<Barber>) =>
     setDraft((d) => d.map((b) => (b.id === id ? { ...b, ...p } : b)));
 
@@ -156,7 +156,6 @@ export function BarbersTab({ barbers, reload }: { barbers: Barber[]; reload: () 
         initials: "N",
         role_de: "Barber",
         role_en: "Barber",
-        role_tr: "Berber",
         image_url: null,
         sort_order: d.length + 1,
         active: true,
@@ -166,80 +165,69 @@ export function BarbersTab({ barbers, reload }: { barbers: Barber[]; reload: () 
   return (
     <div className="space-y-3">
       <button onClick={add} className="btn-ghost !px-5 !py-2.5">
-        <Plus size={13} /> {t.admin.newBarber}
+        <Plus size={14} /> {t.admin.newBarber}
       </button>
 
       {draft.map((b) => (
-        <div key={b.id} className="border border-white/10 bg-ink p-4">
+        <div key={b.id} className="rounded-2xl border border-carbon/10 bg-paper-soft p-4">
           <div className="grid gap-3 md:grid-cols-6">
             <Field label={t.booking.name} className="md:col-span-2">
               <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={b.name}
                 onChange={(e) =>
-                  patch(b.id, { name: e.target.value, initials: e.target.value.slice(0, 1).toUpperCase() })
+                  patch(b.id, {
+                    name: e.target.value,
+                    initials: e.target.value.slice(0, 1).toUpperCase(),
+                  })
                 }
               />
             </Field>
-            <Field label="DE" className="md:col-span-2">
+            <Field label="Deutsch" className="md:col-span-2">
               <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={b.role_de}
                 onChange={(e) => patch(b.id, { role_de: e.target.value })}
               />
             </Field>
-            <Field label="EN" className="md:col-span-2">
+            <Field label="English" className="md:col-span-2">
               <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={b.role_en}
                 onChange={(e) => patch(b.id, { role_en: e.target.value })}
               />
             </Field>
-            <Field label="TR" className="md:col-span-2">
+            <Field label="Foto URL" className="md:col-span-4">
               <input
-                className="field !py-2"
-                value={b.role_tr}
-                onChange={(e) => patch(b.id, { role_tr: e.target.value })}
-              />
-            </Field>
-            <Field label="Foto URL" className="md:col-span-2">
-              <input
-                className="field !py-2"
+                className="field !py-2.5"
                 value={b.image_url ?? ""}
                 placeholder="https://"
                 onChange={(e) => patch(b.id, { image_url: e.target.value || null })}
               />
             </Field>
             <div className="flex items-end gap-2 md:col-span-2">
-              <button
+              <Toggle
+                on={b.active}
                 onClick={() => patch(b.id, { active: !b.active })}
-                className={cn(
-                  "border px-3 py-2 font-body text-[10px] uppercase tracking-widest",
-                  b.active ? "border-success/50 text-success" : "border-white/15 text-smoke",
-                )}
-              >
-                {b.active ? t.admin.active : t.admin.inactive}
-              </button>
+                labelOn={t.admin.active}
+                labelOff={t.admin.inactive}
+              />
               <button
                 onClick={async () => {
                   await db.saveBarber(b);
                   reload();
                 }}
-                className="btn-brass !px-5 !py-2.5"
+                className="btn-solid !px-5 !py-2.5"
               >
                 {t.common.save}
               </button>
-              <button
+              <DeleteButton
                 onClick={async () => {
                   if (!window.confirm(t.admin.confirmDelete)) return;
                   await db.deleteBarber(b.id);
-                  setDraft((d) => d.filter((x) => x.id !== b.id));
                   reload();
                 }}
-                className="grid h-10 w-10 place-items-center border border-white/10 text-smoke hover:border-destructive hover:text-destructive"
-              >
-                <Trash2 size={14} />
-              </button>
+              />
             </div>
           </div>
         </div>
@@ -265,6 +253,9 @@ export function HoursTab({
   const [draft, setDraft] = useState<OpeningHour[]>(openingHours);
   const [cfg, setCfg] = useState<Settings>(settings);
 
+  useEffect(() => setDraft(openingHours), [openingHours]);
+  useEffect(() => setCfg(settings), [settings]);
+
   const patch = (weekday: number, p: Partial<OpeningHour>) =>
     setDraft((d) => d.map((h) => (h.weekday === weekday ? { ...h, ...p } : h)));
 
@@ -277,22 +268,21 @@ export function HoursTab({
           return (
             <div
               key={weekday}
-              className="grid items-end gap-3 border border-white/10 bg-ink p-4 md:grid-cols-5"
+              className="grid items-end gap-3 rounded-2xl border border-carbon/10 bg-paper-soft p-4 md:grid-cols-5"
             >
-              <span className="font-display text-lg text-bone">{t.hours.days[weekday]}</span>
-              <button
+              <span className="font-display text-[19px] font-medium text-carbon">
+                {t.hours.days[weekday]}
+              </span>
+              <Toggle
+                on={h.is_open}
                 onClick={() => patch(weekday, { is_open: !h.is_open })}
-                className={cn(
-                  "border px-3 py-2 font-body text-[10px] uppercase tracking-widest",
-                  h.is_open ? "border-success/50 text-success" : "border-white/15 text-smoke",
-                )}
-              >
-                {h.is_open ? t.admin.open : t.hours.closed}
-              </button>
+                labelOn={t.admin.open}
+                labelOff={t.hours.closed}
+              />
               <Field label={t.admin.from}>
                 <input
                   type="time"
-                  className="field !py-2"
+                  className="field !py-2.5"
                   value={h.open_time}
                   onChange={(e) => patch(weekday, { open_time: e.target.value })}
                 />
@@ -300,7 +290,7 @@ export function HoursTab({
               <Field label={t.admin.to}>
                 <input
                   type="time"
-                  className="field !py-2"
+                  className="field !py-2.5"
                   value={h.close_time}
                   onChange={(e) => patch(weekday, { close_time: e.target.value })}
                 />
@@ -310,7 +300,7 @@ export function HoursTab({
                   await db.saveOpeningHour(h);
                   reload();
                 }}
-                className="btn-brass !px-5 !py-2.5"
+                className="btn-solid !px-5 !py-2.5"
               >
                 {t.common.save}
               </button>
@@ -319,15 +309,15 @@ export function HoursTab({
         })}
       </div>
 
-      <div className="border border-white/10 bg-ink p-5">
-        <h3 className="font-body text-[10px] uppercase tracking-brand text-brass">
+      <div className="rounded-2xl border border-carbon/10 bg-paper-soft p-5">
+        <h3 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
           {t.admin.settings}
         </h3>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <Field label={t.admin.granularity}>
             <input
               type="number"
-              className="field !py-2"
+              className="field !py-2.5"
               value={cfg.slot_granularity_min}
               onChange={(e) => setCfg({ ...cfg, slot_granularity_min: Number(e.target.value) })}
             />
@@ -335,7 +325,7 @@ export function HoursTab({
           <Field label={t.admin.leadTime}>
             <input
               type="number"
-              className="field !py-2"
+              className="field !py-2.5"
               value={cfg.min_lead_time_min}
               onChange={(e) => setCfg({ ...cfg, min_lead_time_min: Number(e.target.value) })}
             />
@@ -343,7 +333,7 @@ export function HoursTab({
           <Field label={t.admin.buffer}>
             <input
               type="number"
-              className="field !py-2"
+              className="field !py-2.5"
               value={cfg.buffer_after_min}
               onChange={(e) => setCfg({ ...cfg, buffer_after_min: Number(e.target.value) })}
             />
@@ -351,28 +341,25 @@ export function HoursTab({
           <Field label={t.admin.maxAdvance}>
             <input
               type="number"
-              className="field !py-2"
+              className="field !py-2.5"
               value={cfg.max_advance_days}
               onChange={(e) => setCfg({ ...cfg, max_advance_days: Number(e.target.value) })}
             />
           </Field>
         </div>
-        <div className="mt-4 flex items-center gap-3">
-          <button
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Toggle
+            on={cfg.auto_confirm}
             onClick={() => setCfg({ ...cfg, auto_confirm: !cfg.auto_confirm })}
-            className={cn(
-              "border px-3 py-2 font-body text-[10px] uppercase tracking-widest",
-              cfg.auto_confirm ? "border-success/50 text-success" : "border-white/15 text-smoke",
-            )}
-          >
-            {t.admin.autoConfirm}
-          </button>
+            labelOn={t.admin.autoConfirm}
+            labelOff={t.admin.autoConfirm}
+          />
           <button
             onClick={async () => {
               await db.saveSettings(cfg);
               reload();
             }}
-            className="btn-brass !px-5 !py-2.5"
+            className="btn-solid !px-5 !py-2.5"
           >
             {t.common.save}
           </button>
@@ -416,18 +403,18 @@ export function BlocksTab({
 
   return (
     <div className="space-y-6">
-      <div className="grid items-end gap-3 border border-white/10 bg-ink p-5 md:grid-cols-6">
+      <div className="grid items-end gap-3 rounded-2xl border border-carbon/10 bg-paper-soft p-5 md:grid-cols-6">
         <Field label={t.booking.date}>
           <input
             type="date"
-            className="field !py-2"
+            className="field !py-2.5"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
         </Field>
         <Field label={t.booking.barber}>
           <select
-            className="field !py-2"
+            className="field !py-2.5"
             value={barberId}
             onChange={(e) => setBarberId(e.target.value)}
           >
@@ -439,21 +426,23 @@ export function BlocksTab({
             ))}
           </select>
         </Field>
-        <button
-          onClick={() => setAllDay((v) => !v)}
-          className={cn(
-            "border px-3 py-2.5 font-body text-[10px] uppercase tracking-widest",
-            allDay ? "border-bone/60 text-bone" : "border-white/15 text-smoke",
-          )}
-        >
-          {t.admin.allDay}
-        </button>
+        <div className="flex items-end">
+          <button
+            onClick={() => setAllDay((v) => !v)}
+            className={cn(
+              "rounded-full border px-4 py-2.5 font-body text-[11px] font-semibold uppercase tracking-widest transition-colors",
+              allDay ? "border-carbon bg-carbon text-paper" : "border-carbon/15 bg-white text-stone",
+            )}
+          >
+            {t.admin.allDay}
+          </button>
+        </div>
         {!allDay ? (
           <>
             <Field label={t.admin.from}>
               <input
                 type="time"
-                className="field !py-2"
+                className="field !py-2.5"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
               />
@@ -461,7 +450,7 @@ export function BlocksTab({
             <Field label={t.admin.to}>
               <input
                 type="time"
-                className="field !py-2"
+                className="field !py-2.5"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
               />
@@ -472,14 +461,14 @@ export function BlocksTab({
         )}
         <Field label={t.admin.reason} className="md:col-span-4">
           <input
-            className="field !py-2"
+            className="field !py-2.5"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Urlaub, Feiertag, Termin ausserhalb"
           />
         </Field>
-        <button onClick={create} className="btn-brass !px-5 !py-2.5 md:col-span-2">
-          <Plus size={13} /> {t.admin.newBlock}
+        <button onClick={create} className="btn-solid !px-5 !py-2.5 md:col-span-2">
+          <Plus size={14} /> {t.admin.newBlock}
         </button>
       </div>
 
@@ -492,37 +481,146 @@ export function BlocksTab({
             .map((b) => (
               <li
                 key={b.id}
-                className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-ink px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-carbon/10 bg-white px-5 py-3.5"
               >
-                <span className="font-body text-[12px] text-bone">
+                <span className="font-body text-[13px] text-carbon">
                   {new Date(b.date).toLocaleDateString(lang, {
                     weekday: "short",
                     day: "2-digit",
                     month: "short",
                   })}
-                  <span className="ml-3 text-smoke">
+                  <span className="ml-3 text-stone">
                     {b.all_day ? t.admin.allDay : `${b.start_time} - ${b.end_time}`}
                   </span>
-                  <span className="ml-3 text-smoke/70">
+                  <span className="ml-3 text-stone/80">
                     {b.barber_id
                       ? barbers.find((x) => x.id === b.barber_id)?.name
                       : t.admin.allBarbers}
                   </span>
-                  {b.reason ? <span className="ml-3 text-smoke/60">{b.reason}</span> : null}
+                  {b.reason ? <span className="ml-3 text-stone/70">{b.reason}</span> : null}
                 </span>
-                <button
+                <DeleteButton
                   onClick={async () => {
                     await db.deleteBlocked(b.id);
                     reload();
                   }}
-                  className="grid h-9 w-9 place-items-center border border-white/10 text-smoke hover:border-destructive hover:text-destructive"
-                >
-                  <Trash2 size={14} />
-                </button>
+                />
               </li>
             ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------- Zugange -------------------------------- */
+
+export function AdminsTab({
+  admins,
+  demo,
+  reload,
+}: {
+  admins: AdminAccount[];
+  demo: boolean;
+  reload: () => void;
+}) {
+  const { t, lang } = useLanguage();
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const create = async () => {
+    setError(null);
+    try {
+      await db.createAdmin({ email, name, password });
+      setEmail("");
+      setName("");
+      setPassword("");
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid items-end gap-3 rounded-2xl border border-carbon/10 bg-paper-soft p-5 md:grid-cols-4">
+        <Field label={t.admin.adminName}>
+          <input className="field !py-2.5" value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label={t.admin.adminEmail}>
+          <input
+            className="field !py-2.5"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        {demo ? (
+          <Field label={t.admin.adminPassword}>
+            <input
+              className="field !py-2.5"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+        ) : (
+          <div className="hidden md:block" />
+        )}
+        <button
+          onClick={create}
+          disabled={!email.trim() || !name.trim() || (demo && password.length < 6)}
+          className="btn-solid !px-5 !py-2.5"
+        >
+          <Plus size={14} /> {t.admin.newAdmin}
+        </button>
+      </div>
+
+      {!demo ? (
+        <p className="rounded-2xl border border-brass/25 bg-brass/[0.06] px-5 py-3.5 font-body text-[13px] leading-relaxed text-carbon">
+          {t.admin.adminHint}
+        </p>
+      ) : null}
+
+      {error ? (
+        <p className="rounded-2xl border border-destructive/30 bg-destructive/[0.07] px-5 py-3.5 font-body text-[13px] text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <ul className="space-y-2">
+        {admins.map((a) => (
+          <li
+            key={a.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-carbon/10 bg-white px-5 py-4"
+          >
+            <span>
+              <span className="block font-display text-[18px] font-medium text-carbon">
+                {a.name || a.email}
+              </span>
+              <span className="block font-body text-[12px] text-stone">
+                {a.email}
+                {a.created_at
+                  ? ` · ${new Date(a.created_at).toLocaleDateString(lang, {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}`
+                  : ""}
+              </span>
+            </span>
+            <DeleteButton
+              onClick={async () => {
+                if (!window.confirm(t.admin.confirmDelete)) return;
+                await db.deleteAdmin(a.id);
+                reload();
+              }}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

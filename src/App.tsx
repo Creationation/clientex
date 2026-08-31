@@ -7,6 +7,7 @@ import Booking from "@/pages/Booking";
 import Confirmation from "@/pages/Confirmation";
 import Legal from "@/pages/Legal";
 import Admin from "@/pages/Admin";
+import Tagesplan from "@/pages/Tagesplan";
 import NotFound from "@/pages/NotFound";
 
 function ScrollToTop() {
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/impressum" element={<Legal kind="impressum" />} />
             <Route path="/datenschutz" element={<Legal kind="datenschutz" />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/tagesplan" element={<Tagesplan />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

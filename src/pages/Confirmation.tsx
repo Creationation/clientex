@@ -39,39 +39,35 @@ export default function Confirmation() {
   });
 
   return (
-    <div className="grain relative min-h-screen bg-marble">
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-bone/[0.035] blur-[130px]" />
-
-      <header className="relative border-b border-white/10">
-        <div className="container flex items-center justify-center py-6">
+    <div className="min-h-screen bg-paper-soft">
+      <header className="border-b border-carbon/10 bg-paper">
+        <div className="container flex items-center justify-center py-5">
           <Link to="/">
             <Wordmark />
           </Link>
         </div>
       </header>
 
-      <main className="container relative flex max-w-2xl flex-col items-center py-16 text-center md:py-24">
-        <span className="grid h-16 w-16 place-items-center rounded-full border border-bone/25 bg-bone/[0.06] text-bone">
+      <main className="container flex max-w-xl flex-col items-center py-14 text-center md:py-20">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-carbon text-paper">
           <Check size={26} />
         </span>
 
-        <h1 className="mt-9 font-display text-[clamp(2.2rem,6vw,3.4rem)] leading-tight text-bone">
+        <h1 className="mt-7 font-display text-[clamp(2rem,5vw,2.9rem)] font-semibold leading-tight text-carbon">
           {t.confirmation.title}
         </h1>
-        <p className="mt-4 max-w-md text-sm font-light leading-relaxed text-smoke">
-          {t.confirmation.sub}
-        </p>
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-stone">{t.confirmation.sub}</p>
 
-        <div className="mt-12 w-full border border-white/10 bg-ink-soft/80 p-7 text-left backdrop-blur-sm">
-          <div className="flex items-baseline justify-between gap-4 border-b border-white/10 pb-5">
-            <span className="font-display text-2xl text-bone">{serviceLabel}</span>
-            <span className="font-display text-2xl text-bone">
+        <div className="mt-10 w-full rounded-3xl border border-carbon/10 bg-white p-7 text-left shadow-soft">
+          <div className="flex items-baseline justify-between gap-4 border-b border-carbon/10 pb-5">
+            <span className="font-display text-[21px] font-medium text-carbon">{serviceLabel}</span>
+            <span className="shrink-0 font-display text-[24px] font-semibold text-carbon">
               {formatPrice(booking.price)}
-              <span className="ml-1 text-xs text-smoke">EUR</span>
+              <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
             </span>
           </div>
 
-          <dl className="mt-6 space-y-4">
+          <dl className="mt-5 space-y-3.5">
             <Row label={t.booking.date} value={prettyDate} />
             <Row label={t.booking.time} value={`${booking.start_time} - ${booking.end_time}`} />
             <Row label={t.booking.barber} value={barberLabel} />
@@ -81,42 +77,42 @@ export default function Confirmation() {
           </dl>
         </div>
 
-        <div className="mt-8 w-full">
-          <p className="eyebrow text-center">{t.confirmation.addToCalendar}</p>
-          <div className="mt-4 flex flex-wrap justify-center gap-3">
+        <div className="mt-7 w-full">
+          <p className="eyebrow">{t.confirmation.addToCalendar}</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-3">
             <button
               onClick={() => downloadIcs(`delherren-${booking.booking_date}.ics`, buildIcs(icsInput))}
-              className="btn-brass"
+              className="btn-solid !px-6 !py-3.5"
             >
-              <Download size={13} />
+              <Download size={14} />
               {t.confirmation.downloadIcs}
             </button>
             <a
               href={googleCalendarUrl(icsInput)}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-ghost"
+              className="btn-ghost !px-6 !py-3.5"
             >
-              <CalendarPlus size={13} />
+              <CalendarPlus size={14} />
               {t.confirmation.googleCalendar}
             </a>
           </div>
         </div>
 
-        <p className="mt-12 font-display text-lg italic text-brass">{t.confirmation.seeYou}</p>
+        <p className="mt-10 font-display text-[18px] italic text-brass">{t.confirmation.seeYou}</p>
 
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
+        <div className="mt-6 flex flex-wrap justify-center gap-5">
           <Link
             to="/"
-            className="font-body text-[11px] uppercase tracking-widest text-smoke transition-colors hover:text-brass"
+            className="font-body text-[13px] font-medium text-stone transition-colors hover:text-carbon"
           >
             {t.confirmation.backHome}
           </Link>
           <a
             href={SALON.phoneHref}
-            className="flex items-center gap-2 font-body text-[11px] uppercase tracking-widest text-smoke transition-colors hover:text-brass"
+            className="flex items-center gap-2 font-body text-[13px] font-medium text-stone transition-colors hover:text-carbon"
           >
-            <Phone size={12} /> {t.confirmation.callUs}
+            <Phone size={13} /> {t.confirmation.callUs}
           </a>
         </div>
       </main>
@@ -127,8 +123,8 @@ export default function Confirmation() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-6">
-      <dt className="font-body text-[10px] uppercase tracking-widest text-smoke">{label}</dt>
-      <dd className="text-right font-body text-sm text-bone">{value}</dd>
+      <dt className="font-body text-[12px] text-stone">{label}</dt>
+      <dd className="text-right font-body text-[14px] font-medium text-carbon">{value}</dd>
     </div>
   );
 }

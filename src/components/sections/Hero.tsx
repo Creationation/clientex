@@ -1,65 +1,73 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, Phone, Star } from "lucide-react";
+import { ArrowDown, MapPin, Phone, Star } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SALON, SALON_ADDRESS_LINE } from "@/data/salon";
-import { ArchFrame } from "@/components/ui/Primitives";
+import { MEDIA } from "@/data/seed";
 import type { OpeningHour } from "@/data/types";
 import { openStatus } from "@/lib/slots";
 
+/**
+ * Hero video plein ecran.
+ * La video est auto-hebergee (public/media), muette, en boucle et sans
+ * controles : c'est un decor, pas un lecteur. Une affiche prend le relais
+ * tant que le fichier n'est pas charge, et sur les connexions economes ou
+ * quand l'utilisateur a demande moins d'animations.
+ */
 export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) {
   const { t } = useLanguage();
   const status = openStatus(openingHours);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const saveData = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (reduced || saveData) return;
+    videoRef.current?.play().catch(() => {
+      /* lecture refusee : l'affiche reste visible */
+    });
+  }, []);
+
+  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <section className="grain relative flex min-h-[100svh] items-center overflow-hidden bg-marble pt-28">
-      {/* Halo laiton diffus */}
-      <div className="pointer-events-none absolute -right-40 top-1/4 h-[560px] w-[560px] rounded-full bg-bone/[0.03] blur-[130px]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
+    <section className="relative flex min-h-[100svh] items-end overflow-hidden bg-carbon">
+      <video
+        ref={videoRef}
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+          ready ? "opacity-100" : "opacity-0"
+        }`}
+        src={mobile ? MEDIA.heroVideoMobile : MEDIA.heroVideo}
+        poster={MEDIA.heroPoster}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onCanPlay={() => setReady(true)}
+        aria-hidden="true"
+      />
 
-      {/* Filet vertical decoratif */}
-      <div className="pointer-events-none absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/[0.06] to-transparent lg:block" />
+      {/* Voiles : lisibilite du texte sans assombrir toute l'image */}
+      <div className="absolute inset-0 bg-gradient-to-t from-carbon via-carbon/70 to-carbon/25" />
+      <div className="absolute inset-0 bg-gradient-to-r from-carbon/85 via-carbon/35 to-transparent" />
 
-      <div className="container relative z-10 grid items-center gap-16 pb-24 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="animate-rise">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <span className="eyebrow">{t.hero.eyebrow}</span>
-            <span className="flex items-center gap-1.5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Star key={i} size={10} className="fill-brass/70 text-brass/70" />
-              ))}
-              <span className="ml-1 font-body text-[11px] tracking-widest text-smoke">
+      <div className="container relative z-10 pb-16 pt-32 md:pb-24">
+        <div className="max-w-2xl animate-rise">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-paper/25 bg-carbon/40 px-3.5 py-1.5 backdrop-blur-sm">
+              <span className="flex items-center gap-0.5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Star key={i} size={11} className="fill-brass-light text-brass-light" />
+                ))}
+              </span>
+              <span className="font-body text-[11px] font-medium text-paper/85">
                 {SALON.rating.toString().replace(".", ",")} · {SALON.reviewCount} {t.hero.reviews}
               </span>
             </span>
-          </div>
-
-          <h1 className="mt-8 font-display text-[clamp(3rem,10vw,6.5rem)] leading-[0.92] tracking-[-0.01em]">
-            <span className="block text-bone">{t.hero.titleTop}</span>
-            <span className="block italic text-brass">{t.hero.titleBottom}</span>
-          </h1>
-
-          <div className="mt-9 flex items-start gap-5">
-            <span className="mt-3 hidden h-px w-16 shrink-0 bg-brass/60 sm:block" />
-            <p className="max-w-lg text-[15px] font-light leading-relaxed text-smoke">
-              {t.hero.sub}
-            </p>
-          </div>
-
-          <div className="mt-11 flex flex-wrap items-center gap-4">
-            <Link to="/termin" className="btn-brass">
-              {t.hero.cta}
-            </Link>
-            <a href={SALON.phoneHref} className="btn-ghost">
-              <Phone size={13} />
-              {t.hero.ctaCall}
-            </a>
-          </div>
-
-          <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-white/[0.07] pt-7 font-body text-[11px] uppercase tracking-widest text-smoke">
-            <span>{SALON_ADDRESS_LINE}</span>
-            <span className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-paper/25 bg-carbon/40 px-3.5 py-1.5 font-body text-[11px] font-medium text-paper/85 backdrop-blur-sm">
               <span
-                className={`h-1.5 w-1.5 rounded-full ${status.open ? "bg-success" : "bg-smoke/60"}`}
+                className={`h-1.5 w-1.5 rounded-full ${status.open ? "bg-success" : "bg-paper/50"}`}
               />
               {status.open
                 ? `${t.status.openUntil} ${status.until}`
@@ -68,38 +76,43 @@ export default function Hero({ openingHours }: { openingHours: OpeningHour[] }) 
                   : t.status.closedToday}
             </span>
           </div>
-        </div>
 
-        {/* Panneau arche */}
-        <div className="relative hidden lg:block">
-          <div className="animate-fade">
-            <ArchFrame ratio="aspect-[4/5]" index={0} tone="from-[#1c1a17] via-[#121110] to-[#0a0909]" />
+          <h1 className="mt-7 font-display text-[clamp(2.6rem,7.5vw,5rem)] font-semibold leading-[0.98] text-paper">
+            {t.hero.titleTop}
+            <br />
+            <span className="text-brass-light">{t.hero.titleBottom}</span>
+          </h1>
+
+          <p className="mt-6 max-w-lg text-[16px] leading-relaxed text-paper/75">{t.hero.sub}</p>
+
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <Link to="/termin" className="btn-light">
+              {t.hero.cta}
+            </Link>
+            <a href={SALON.phoneHref} className="btn-outline-light">
+              <Phone size={14} />
+              {t.hero.ctaCall}
+            </a>
           </div>
 
-          <div className="absolute -left-10 bottom-10 w-56 border border-white/10 bg-ink/90 p-5 backdrop-blur-sm">
-            <p className="eyebrow">{t.services.eyebrow}</p>
-            <p className="mt-3 font-display text-4xl text-bone">
-              25<span className="ml-1 text-lg text-smoke">EUR</span>
-            </p>
-            <p className="mt-1 font-body text-[11px] uppercase tracking-widest text-smoke">
-              Herrenhaarschnitt · 30 {t.common.min}
-            </p>
-          </div>
-
-          <span className="absolute -right-6 top-1/2 origin-center -translate-y-1/2 rotate-90 font-body text-[10px] uppercase tracking-brand text-white/20">
-            1220 Wien Donaustadt
-          </span>
+          <a
+            href={SALON.mapsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-8 inline-flex items-center gap-2 font-body text-[12px] text-paper/60 transition-colors hover:text-paper"
+          >
+            <MapPin size={13} />
+            {SALON_ADDRESS_LINE}
+          </a>
         </div>
       </div>
 
       <button
-        onClick={() =>
-          document.getElementById("leistungen")?.scrollIntoView({ behavior: "smooth" })
-        }
-        className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-3 text-smoke transition-colors hover:text-brass md:flex"
+        onClick={() => document.getElementById("leistungen")?.scrollIntoView({ behavior: "smooth" })}
+        className="absolute bottom-7 right-7 z-10 hidden h-12 w-12 items-center justify-center rounded-full border border-paper/25 text-paper/70 transition-colors hover:bg-paper/10 hover:text-paper md:flex"
+        aria-label={t.hero.scroll}
       >
-        <span className="font-body text-[10px] uppercase tracking-brand">{t.hero.scroll}</span>
-        <ArrowDown size={14} className="animate-bounce" />
+        <ArrowDown size={16} />
       </button>
     </section>
   );

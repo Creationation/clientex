@@ -1,36 +1,37 @@
-@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Jost:wght@200;300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------
-   Palette
-   Volontairement desaturee. L'or sature et les degrades metalliques font
-   clinquant ; la reference ici est le laiton patine et le taupe chaud, un
-   accent unique utilise en petites doses (filets, surtitres, chiffres).
-   Le contraste vient de l'ivoire sur le noir, pas de la couleur.
+   Systeme visuel
+   Fond ivoire chaud plutot que noir : plus lumineux, plus lisible, et la
+   photo porte l'ambiance a la place de la couleur. Le noir reste present
+   mais par blocs (hero video, bandeau atelier, pied de page).
+   Typo : Fraunces (serif optique, pleins solides) + Manrope (sans neutre).
+   Angles arrondis partout, boutons en pilule.
 --------------------------------------------------------------------------- */
 
 @layer base {
   :root {
-    --ink: 30 6% 5%;          /* noir chaud, pas bleute */
-    --ink-soft: 30 5% 8%;
-    --ink-raised: 30 5% 12%;
+    --paper: 40 33% 97%;      /* #FBF8F2 ivoire chaud */
+    --paper-soft: 38 26% 94%;
+    --paper-deep: 36 20% 89%;
 
-    --brass: 35 20% 60%;      /* laiton patine, jamais dore */
-    --brass-light: 36 22% 74%;
-    --brass-dark: 33 14% 38%;
+    --carbon: 30 8% 12%;      /* #211F1C noir chaud */
+    --carbon-soft: 30 6% 22%;
 
-    --bone: 40 14% 92%;       /* ivoire, la vraie couleur d'accent */
-    --smoke: 34 5% 52%;
+    --stone: 32 6% 40%;       /* texte secondaire */
+    --brass: 30 30% 36%;      /* bronze lisible sur ivoire */
+    --brass-light: 32 34% 56%;
 
-    --destructive: 6 45% 52%;
-    --success: 150 22% 48%;
+    --destructive: 6 52% 46%;
+    --success: 150 30% 34%;
   }
 
   * {
-    border-color: hsl(40 14% 92% / 0.08);
+    border-color: hsl(var(--carbon) / 0.12);
   }
 
   html {
@@ -38,105 +39,104 @@
   }
 
   body {
-    @apply bg-ink text-bone font-body antialiased;
-    font-weight: 300;
+    @apply bg-paper text-carbon font-body antialiased;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4 {
     @apply font-display;
-    font-weight: 400;
+    font-weight: 500;
+    letter-spacing: -0.015em;
   }
 
   ::selection {
-    background: hsl(var(--bone));
-    color: hsl(var(--ink));
+    background: hsl(var(--carbon));
+    color: hsl(var(--paper));
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: hsl(var(--ink)); }
-  ::-webkit-scrollbar-thumb { background: hsl(var(--ink-raised)); }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--brass-dark)); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: hsl(var(--paper-soft)); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--carbon) / 0.25); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--carbon) / 0.4); }
 
   input, select, textarea, button { font-family: inherit; }
 
-  input:-webkit-autofill,
-  input:-webkit-autofill:focus {
-    -webkit-text-fill-color: hsl(var(--bone));
-    -webkit-box-shadow: 0 0 0 1000px hsl(var(--ink-soft)) inset;
-  }
-
   :focus-visible {
-    outline: 1px solid hsl(var(--brass) / 0.6);
+    outline: 2px solid hsl(var(--carbon) / 0.5);
     outline-offset: 2px;
+    border-radius: 999px;
   }
 }
 
 @layer components {
-  /* Surtitre de section */
   .eyebrow {
-    @apply font-body text-[10px] uppercase tracking-brand text-brass;
-    font-weight: 400;
+    @apply font-body text-[10px] font-semibold uppercase tracking-brand text-brass;
   }
 
   .rule-left {
     height: 1px;
-    width: 48px;
-    background: hsl(var(--brass) / 0.5);
+    width: 40px;
+    background: hsl(var(--brass) / 0.55);
   }
 
-  /* Arche, echo des miroirs du salon. Discrete, pas de courbe caricaturale. */
+  /* Arche adoucie, echo des miroirs du salon */
   .arch {
-    border-top-left-radius: 50% 18%;
-    border-top-right-radius: 50% 18%;
+    border-radius: 999px 999px 1.75rem 1.75rem;
     overflow: hidden;
   }
 
-  /* Bouton principal : aplat ivoire sur noir. Aucun degrade, aucun reflet. */
+  /* Boutons en pilule. Aucun degrade, aucun reflet. */
   .btn-solid {
-    @apply inline-flex items-center justify-center gap-2 border border-bone bg-bone px-8 py-4
-           font-body text-[11px] uppercase tracking-widest text-ink
-           transition-colors duration-300;
-    font-weight: 500;
-  }
-  .btn-solid:hover {
-    @apply border-brass-light bg-brass-light;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-carbon px-8 py-4
+           font-body text-[12px] font-semibold uppercase tracking-widest text-paper
+           shadow-soft transition-all duration-300 hover:bg-carbon-soft
+           active:scale-[0.98];
   }
   .btn-solid:disabled {
-    @apply cursor-not-allowed border-white/15 bg-white/15 text-ink/50;
+    @apply cursor-not-allowed bg-carbon/25 text-paper/70 shadow-none;
   }
 
-  /* Alias conserve pour ne pas casser les appels existants */
+  /* Alias historique */
   .btn-brass {
     @apply btn-solid;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 border border-white/20 px-8 py-4
-           font-body text-[11px] uppercase tracking-widest text-bone
-           transition-colors duration-300 hover:border-bone/70;
-    font-weight: 400;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-carbon/20
+           px-8 py-4 font-body text-[12px] font-semibold uppercase tracking-widest text-carbon
+           transition-all duration-300 hover:border-carbon/50 hover:bg-carbon/[0.04]
+           active:scale-[0.98];
+  }
+
+  /* Bouton sur fond sombre (hero video, pied de page) */
+  .btn-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-paper px-8 py-4
+           font-body text-[12px] font-semibold uppercase tracking-widest text-carbon
+           transition-all duration-300 hover:bg-white active:scale-[0.98];
+  }
+
+  .btn-outline-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-paper/40
+           px-8 py-4 font-body text-[12px] font-semibold uppercase tracking-widest text-paper
+           transition-all duration-300 hover:border-paper hover:bg-paper/10
+           active:scale-[0.98];
   }
 
   .field {
-    @apply w-full border border-white/10 bg-ink-soft px-4 py-3 text-sm text-bone
-           outline-none transition-colors placeholder:text-smoke/60
-           focus:border-brass/60;
+    @apply w-full rounded-xl border border-carbon/15 bg-white px-4 py-3 text-[15px] text-carbon
+           outline-none transition-colors placeholder:text-stone/60
+           focus:border-carbon/45;
   }
 
   .card {
-    @apply border border-white/10 bg-ink-soft;
+    @apply rounded-2xl border border-carbon/10 bg-white;
   }
 
-  /* Grain photographique tres leger, casse l'aplat numerique */
-  .grain::before {
-    content: "";
-    position: absolute;
-    inset: -50%;
-    pointer-events: none;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-carbon/15 bg-white
+           px-3.5 py-1.5 font-body text-[11px] font-medium uppercase tracking-widest text-stone;
   }
 }
 
@@ -150,5 +150,9 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  /* Zone sombre : inverse les couleurs de texte par defaut */
+  .on-dark {
+    color: hsl(var(--paper));
   }
 }

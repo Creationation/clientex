@@ -1,54 +1,63 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 
 /**
- * Auth admin.
+ * Authentification du dashboard, e-mail + mot de passe dans les deux modes.
  *
- * Avec Supabase : session Supabase + verification du role via la table
- * admin_users (fonction SECURITY DEFINER is_admin()). Aucune donnee sensible
- * n'est accessible sans ce role, les policies RLS font foi cote serveur.
+ * Supabase : Auth gere le mot de passe, la table admin_users donne le droit
+ * d'entrer. Les policies RLS font foi cote serveur, l'ecran ci-dessous n'est
+ * qu'une porte d'entree.
  *
- * Sans Supabase (mode demo) : un simple deverrouillage local pour pouvoir
- * montrer le dashboard. Aucune donnee reelle n'est en jeu.
+ * Demo : les comptes vivent dans le localStorage. Aucun secret reel n'est en
+ * jeu, cela permet de montrer le dashboard sans backend.
  */
 
-const DEMO_KEY = "delherren_demo_admin";
+const SESSION_KEY = "delherren_demo_session";
 
 interface AdminAuthValue {
   ready: boolean;
   isAdmin: boolean;
   email: string | null;
+  name: string | null;
   demo: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signInDemo: () => void;
   signOut: () => Promise<void>;
 }
 
 const AdminAuthContext = createContext<AdminAuthValue | null>(null);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(!isSupabaseConfigured);
+  const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [name, setName] = useState<string | null>(null);
 
   const checkAdmin = useCallback(async (userId: string, userEmail: string | null) => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from("admin_users")
-      .select("user_id")
+      .select("user_id, name")
       .eq("user_id", userId)
       .maybeSingle();
-    if (error) console.error("[admin] role check", error.message);
+    if (error) console.error("[admin] verification du role", error.message);
     setIsAdmin(Boolean(data));
     setEmail(userEmail);
+    setName((data as { name?: string } | null)?.name ?? null);
   }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       try {
-        setIsAdmin(localStorage.getItem(DEMO_KEY) === "1");
+        const raw = localStorage.getItem(SESSION_KEY);
+        if (raw) {
+          const session = JSON.parse(raw) as { email: string; name: string };
+          setIsAdmin(true);
+          setEmail(session.email);
+          setName(session.name);
+        }
       } catch {
-        /* ignore */
+        /* session illisible : on reste deconnecte */
       }
       setReady(true);
       return;
@@ -67,6 +76,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsAdmin(false);
         setEmail(null);
+        setName(null);
       }
       setReady(true);
     });
@@ -75,34 +85,56 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, [checkAdmin]);
 
   const signIn = useCallback(async (mail: string, password: string) => {
-    if (!supabase) throw new Error("SUPABASE_NOT_CONFIGURED");
-    const { error } = await supabase.auth.signInWithPassword({ email: mail, password });
-    if (error) throw new Error(error.message);
-  }, []);
-
-  const signInDemo = useCallback(() => {
-    try {
-      localStorage.setItem(DEMO_KEY, "1");
-    } catch {
-      /* ignore */
+    if (!isSupabaseConfigured || !supabase) {
+      const account = await db.verifyDemoLogin(mail, password);
+      if (!account) throw new Error("INVALID_CREDENTIALS");
+      try {
+        localStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({ email: account.email, name: account.name }),
+        );
+      } catch {
+        /* ignore */
+      }
+      setIsAdmin(true);
+      setEmail(account.email);
+      setName(account.name);
+      return;
     }
-    setIsAdmin(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: mail.trim(),
+      password,
+    });
+    if (error) throw new Error("INVALID_CREDENTIALS");
+
+    // Un compte Auth valide ne suffit pas : il faut etre dans admin_users.
+    const { data: row } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    if (!row) {
+      await supabase.auth.signOut();
+      throw new Error("NOT_ADMIN");
+    }
   }, []);
 
   const signOut = useCallback(async () => {
     try {
-      localStorage.removeItem(DEMO_KEY);
+      localStorage.removeItem(SESSION_KEY);
     } catch {
       /* ignore */
     }
     if (supabase) await supabase.auth.signOut();
     setIsAdmin(false);
     setEmail(null);
+    setName(null);
   }, []);
 
   return (
     <AdminAuthContext.Provider
-      value={{ ready, isAdmin, email, demo: !isSupabaseConfigured, signIn, signInDemo, signOut }}
+      value={{ ready, isAdmin, email, name, demo: !isSupabaseConfigured, signIn, signOut }}
     >
       {children}
     </AdminAuthContext.Provider>
@@ -111,6 +143,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
 export function useAdminAuth(): AdminAuthValue {
   const ctx = useContext(AdminAuthContext);
-  if (!ctx) throw new Error("useAdminAuth must be used inside AdminAuthProvider");
+  if (!ctx) throw new Error("useAdminAuth doit etre utilise dans AdminAuthProvider");
   return ctx;
 }

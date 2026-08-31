@@ -1,0 +1,143 @@
+@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,700;1,6..96,400&family=Jost:wght@200;300;400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: 0 0% 4%;
+    --ink-soft: 0 0% 7%;
+    --ink-raised: 0 0% 10%;
+    --brass: 46 71% 47%;
+    --brass-light: 44 78% 66%;
+    --brass-dark: 41 62% 32%;
+    --bone: 40 22% 94%;
+    --smoke: 30 4% 58%;
+    --line: 40 12% 100% / 0.09;
+    --destructive: 0 62% 52%;
+    --success: 150 46% 44%;
+  }
+
+  * {
+    border-color: hsl(0 0% 100% / 0.09);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ink text-bone font-body antialiased;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+    font-weight: 400;
+  }
+
+  ::selection {
+    background: hsl(var(--brass) / 0.85);
+    color: hsl(var(--ink));
+  }
+
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: hsl(var(--ink)); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--brass-dark)); }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--brass)); }
+
+  input, select, textarea, button { font-family: inherit; }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: hsl(var(--bone));
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--ink-soft)) inset;
+  }
+}
+
+@layer components {
+  /* Eyebrow label above section titles */
+  .eyebrow {
+    @apply font-body text-[10px] uppercase tracking-brand text-brass;
+    font-weight: 500;
+  }
+
+  /* Thin brass rule used as a section divider */
+  .rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--brass) / 0.55), transparent);
+  }
+
+  .rule-left {
+    height: 1px;
+    width: 56px;
+    background: linear-gradient(90deg, hsl(var(--brass)), transparent);
+  }
+
+  /* Arched frame, echoes the arch mirrors of the salon */
+  .arch {
+    border-top-left-radius: 50% 22%;
+    border-top-right-radius: 50% 22%;
+    overflow: hidden;
+  }
+
+  .btn-brass {
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden px-8 py-4
+           font-body text-[11px] uppercase tracking-widest text-ink transition-all duration-500;
+    background-image: linear-gradient(100deg, hsl(var(--brass-dark)), hsl(var(--brass-light)) 42%, hsl(var(--brass)) 60%, hsl(var(--brass-dark)));
+    font-weight: 500;
+  }
+  .btn-brass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.45), transparent);
+    transform: translateX(-120%);
+    transition: transform 0.75s ease;
+  }
+  .btn-brass:hover::after { transform: translateX(120%); }
+  .btn-brass:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-brass:disabled::after { display: none; }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 border border-brass/40 px-8 py-4
+           font-body text-[11px] uppercase tracking-widest text-bone
+           transition-colors duration-500 hover:border-brass hover:bg-brass/10;
+    font-weight: 400;
+  }
+
+  .field {
+    @apply w-full border border-white/10 bg-ink-soft px-4 py-3 text-sm text-bone
+           outline-none transition-colors placeholder:text-smoke/60
+           focus:border-brass/70;
+  }
+
+  .card {
+    @apply border border-white/10 bg-ink-soft;
+  }
+
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: -50%;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 8s steps(2) infinite;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .brass-text {
+    background-image: linear-gradient(100deg, hsl(var(--brass-dark)), hsl(var(--brass-light)) 45%, hsl(var(--brass)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

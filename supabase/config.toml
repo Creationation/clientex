@@ -1,0 +1,13 @@
+project_id = "delherren"
+
+[functions]
+  # Appelee par le navigateur : pas de JWT requis, la validation est faite
+  # dans la fonction elle-meme (voir create-booking/index.ts).
+  [functions.create-booking]
+    verify_jwt = false
+
+  # Fonctions internes : appelees uniquement avec le bearer service role.
+  [functions.send-booking-confirmation]
+    verify_jwt = true
+  [functions.send-telegram-notification]
+    verify_jwt = true

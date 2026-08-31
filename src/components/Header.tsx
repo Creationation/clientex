@@ -8,6 +8,12 @@ import type { OpeningHour } from "@/data/types";
 import { openStatus } from "@/lib/slots";
 import LanguageSwitcher from "./LanguageSwitcher";
 
+/**
+ * Lockup de marque : l'embleme aux ciseaux ailes, puis le nom.
+ * L'embleme est servi en silhouette monochrome (ivoire sur fond sombre,
+ * noir sur fond clair) : le rendu dore d'origine, avec ses reflets, devient
+ * illisible a 28 px de haut et jure avec la palette desaturee du site.
+ */
 export function Wordmark({
   compact = false,
   tone = "light",
@@ -16,25 +22,35 @@ export function Wordmark({
   tone?: "light" | "dark";
 }) {
   return (
-    <span className="flex flex-col leading-none">
-      <span
-        className={cn(
-          "font-display text-[26px] font-semibold tracking-[0.14em]",
-          tone === "dark" ? "text-paper" : "text-carbon",
-        )}
-      >
-        DEL
-      </span>
-      {!compact ? (
+    <span className="flex items-center gap-2.5">
+      <img
+        src={tone === "dark" ? "/media/logo-paper.png" : "/media/logo-carbon.png"}
+        alt="DEL Herren Friseur Barber Shop"
+        width={389}
+        height={256}
+        className={cn("w-auto shrink-0", compact ? "h-7" : "h-9")}
+      />
+      <span className="flex flex-col leading-none">
         <span
           className={cn(
-            "mt-1 font-body text-[8px] font-semibold uppercase tracking-brand",
-            tone === "dark" ? "text-paper/60" : "text-brass",
+            "font-display font-semibold tracking-[0.14em]",
+            compact ? "text-[21px]" : "text-[26px]",
+            tone === "dark" ? "text-paper" : "text-carbon",
           )}
         >
-          Herren Friseur
+          DEL
         </span>
-      ) : null}
+        {!compact ? (
+          <span
+            className={cn(
+              "mt-1 font-body text-[8px] font-semibold uppercase tracking-brand",
+              tone === "dark" ? "text-paper/60" : "text-brass",
+            )}
+          >
+            Herren Friseur
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }

@@ -264,6 +264,19 @@ Bodoni Moda a ete abandonne : ses delies disparaissent a l'ecran.
 **Formes.** Boutons en pilule, cartes arrondies, motif d'arche repris des
 miroirs du salon.
 
+**Logo.** L'embleme aux ciseaux ailes est place a gauche du nom, dans
+l'en-tete, le pied de page, les pages internes, l'e-mail de confirmation, le
+favicon, les icones PWA et l'image de partage. Il est servi en silhouette
+monochrome : ivoire sur fond sombre, noir sur fond clair. Le rendu dore
+d'origine devient illisible a 28 px de haut et jure avec la palette ; il reste
+disponible dans `public/media/logo-gold.png` pour l'impression et la
+signaletique. Le fichier source du client est archive dans `brand/`, avec le
+detail des declinaisons dans `brand/README.md`.
+
+Pour regenerer toutes les declinaisons apres un nouveau fichier source :
+adapter le chemin en tete de `brand/README.md` et relancer le script de
+preparation (silhouette extraite du canal alpha, donc aucun detourage manuel).
+
 **Langues.** Allemand par defaut, anglais en second. Le selecteur affiche de
 vrais drapeaux servis par `flagcdn.com` (Autriche pour l'allemand, Royaume-Uni
 pour l'anglais) plutot que des emojis, dont le rendu est inegal sur Windows.
@@ -282,6 +295,7 @@ attribution). Elles servent de placeholders.
 | `hero-poster.jpg` | affiche affichee avant le chargement de la video |
 | `salon-1..7.jpg` | galerie et photos des barbiers |
 | `craft.jpg` | visuel de la section Salon |
+| `logo-*.png` | declinaisons du logo, generees, a ne pas editer a la main |
 
 Les chemins sont centralises dans `MEDIA` et `GALLERY` (`src/data/seed.ts`),
 et la photo de chaque barbier est editable dans l'admin.

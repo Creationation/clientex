@@ -3,8 +3,15 @@
  * et un mode hors ligne degrade. Aucune donnee de reservation n'est mise en
  * cache, les creneaux doivent toujours venir du reseau.
  */
-const CACHE = "delherren-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.svg", "/icon-512.svg"];
+const CACHE = "delherren-v2";
+const SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/favicon.ico",
+  "/icon-192.png",
+  "/media/logo-carbon.png",
+  "/media/logo-paper.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

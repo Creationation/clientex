@@ -100,6 +100,8 @@ Deno.serve(async (req) => {
       <table role="presentation" width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:100%;background:${INK};border:1px solid ${LINE};">
 
         <tr><td align="center" style="padding:38px 32px 10px;">
+          <img src="${SALON.siteUrl}/media/logo-paper.png" width="74" alt=""
+               style="display:block;margin:0 auto 16px;width:74px;height:auto;border:0;" />
           <div style="font-family:Georgia,serif;font-size:30px;letter-spacing:6px;color:${BONE};">DEL</div>
           <div style="margin-top:8px;font-size:9px;letter-spacing:6px;color:${BRASS};text-transform:uppercase;">Herren Friseur</div>
         </td></tr>

@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
-  <rect width="512" height="512" fill="#0D0C0B"/>
-  <path d="M256 96 c72 0 130 58 130 130 v160 a20 20 0 0 1 -20 20 H146 a20 20 0 0 1 -20 -20 V226 c0 -72 58 -130 130 -130 z" fill="none" stroke="#A89684" stroke-width="4" opacity="0.55"/>
-  <text x="256" y="312" font-family="Georgia, 'Times New Roman', serif" font-size="132" letter-spacing="10" text-anchor="middle" fill="#EFEBE3">DEL</text>
-  <text x="256" y="356" font-family="Helvetica, Arial, sans-serif" font-size="21" letter-spacing="9" text-anchor="middle" fill="#A89684">HERREN</text>
-</svg>

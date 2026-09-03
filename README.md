@@ -51,12 +51,21 @@ appeler `resetDemoData()` depuis `src/lib/db.ts`.
 
 Toutes documentees dans `.env.example`. `.env.local` est ignore par Git.
 
+Deux fichiers **sont** versionnes, parce qu'ils ne contiennent aucun secret :
+`.env.development` et `.env.production` ne portent que `VITE_SITE_URL`, le
+domaine sur lequel le site est servi. Sans lui, `index.html` garderait le
+litteral `%VITE_SITE_URL%` dans ses balises canonical et Open Graph.
+
 | Variable | Role |
 | --- | --- |
 | `VITE_SUPABASE_URL` | URL du projet Supabase |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | cle publique (anon). Exposee au navigateur, c'est normal : la securite repose sur la RLS |
 | `VITE_SUPABASE_PROJECT_ID` | identifiant court, utilise par la CLI |
-| `VITE_SITE_URL` | domaine public, utilise par le JSON-LD et les liens canoniques |
+| `VITE_SITE_URL` | domaine public : lien canonique, Open Graph, JSON-LD, fichier `.ics` |
+
+> **Au changement de domaine**, trois endroits a mettre a jour ensemble :
+> `.env.production`, `public/sitemap.xml` et `public/robots.txt`. Les deux
+> derniers sont copies tels quels par Vite, aucune substitution n'y est faite.
 
 Secrets **cote serveur uniquement**, jamais dans le repo :
 
@@ -211,6 +220,24 @@ supabase functions deploy send-telegram-notification
 ---
 
 ## 6. Deploiement Vercel
+
+### Deploiement de demonstration
+
+Le site tourne en **mode demo** tant qu'aucune variable Supabase n'est definie
+cote Vercel : les donnees viennent du `localStorage` du visiteur. C'est exactement
+ce qu'il faut pour montrer le site a un client, y compris depuis un telephone en
+4G, sans backend et sans risque de polluer de vraies donnees.
+
+- depot : `https://github.com/Creationation/clientex`, branche `main`
+- projet Vercel : `clientex-two`
+- rien a configurer : `vercel.json` fixe deja le framework, la commande de build,
+  les reecritures SPA et les en-tetes de cache
+
+**Si Vercel affiche "No Deployment" apres un push**, l'application GitHub de
+Vercel n'a pas acces a ce depot. Github > Settings > Applications > Vercel >
+Configure, ajouter `clientex` a la liste des depots autorises. Le push suivant
+declenche le build. Voir aussi la note du projet BubuMoney : Vercel n'attribue
+les commits que si l'adresse de l'auteur est verifiee sur le compte GitHub.
 
 1. Importer le repo dans Vercel
 2. Framework preset : Vite. Build `npm run build`, output `dist`

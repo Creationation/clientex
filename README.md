@@ -233,11 +233,53 @@ ce qu'il faut pour montrer le site a un client, y compris depuis un telephone en
 - rien a configurer : `vercel.json` fixe deja le framework, la commande de build,
   les reecritures SPA et les en-tetes de cache
 
-**Si Vercel affiche "No Deployment" apres un push**, l'application GitHub de
-Vercel n'a pas acces a ce depot. Github > Settings > Applications > Vercel >
-Configure, ajouter `clientex` a la liste des depots autorises. Le push suivant
-declenche le build. Voir aussi la note du projet BubuMoney : Vercel n'attribue
-les commits que si l'adresse de l'auteur est verifiee sur le compte GitHub.
+#### Vercel affiche "No Deployment" apres un push
+
+C'est l'etat constate le 3 septembre 2026 : le depot est bien pousse, le projet
+`clientex-two` existe, mais aucun build ne se declenche et le domaine repond
+`DEPLOYMENT_NOT_FOUND`. L'application GitHub de Vercel n'a pas acces au depot.
+Deux facons de s'en sortir, au choix.
+
+**Voie 1, retablir l'integration native (3 clics, rien a copier).**
+
+1. GitHub > Settings > Applications > Vercel > Configure
+2. Repository access : ajouter `Creationation/clientex`
+3. Vercel > projet `clientex-two` > Settings > Git : verifier que le depot est
+   connecte et que la branche de production est `main`
+
+Le push suivant declenche le build. Pour ne pas attendre un commit :
+Deployments > Redeploy.
+
+**Voie 2, deployer depuis la CI (ne depend plus de l'application GitHub).**
+
+`.github/workflows/deploy-vercel.yml` est deja en place. Il ne fait rien tant
+que les secrets sont absents, et deploie a chaque push sur `main` des qu'ils
+existent. Creer les trois secrets dans GitHub > Settings > Secrets and
+variables > Actions :
+
+| Secret | Ou le trouver |
+| --- | --- |
+| `VERCEL_TOKEN` | Vercel > Account Settings > Tokens > Create |
+| `VERCEL_ORG_ID` | Vercel > Account Settings > General |
+| `VERCEL_PROJECT_ID` | Vercel > projet `clientex-two` > Settings > General |
+
+Puis Actions > Deploiement Vercel > Run workflow.
+
+**Voie 3, un deploiement manuel tout de suite**, depuis ce poste :
+
+```bash
+npx vercel login      # ouvre le navigateur, a lancer soi-meme
+npx vercel link       # choisir le projet clientex-two
+npx vercel --prod
+```
+
+`vercel link` ajoute un `VERCEL_OIDC_TOKEN` dans `.env.local` et reecrit
+`.gitignore` : retirer le jeton apres coup, il n'a rien a faire la.
+
+> Note reprise du projet BubuMoney : Vercel n'attribue les commits que si
+> l'adresse de l'auteur est verifiee sur le compte GitHub proprietaire du
+> depot. Sans cela, l'integration Git reste capricieuse et la voie 2 est la
+> plus sure.
 
 1. Importer le repo dans Vercel
 2. Framework preset : Vite. Build `npm run build`, output `dist`

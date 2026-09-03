@@ -1,0 +1,69 @@
+# Deploiement Vercel pilote par GitHub Actions.
+#
+# Pourquoi ce fichier : l'integration Git native de Vercel ne declenche rien sur
+# ce depot (le projet affiche "No Deployment" malgre les push). Plutot que de
+# dependre d'une application GitHub qui n'a pas les droits, on pousse depuis la
+# CI avec un jeton. C'est aussi ce qui rend le deploiement reproductible.
+#
+# Tant que les trois secrets ne sont pas renseignes, le workflow ne fait rien et
+# reste vert : aucun echec parasite si l'integration native se remet a marcher.
+#
+# Secrets a creer dans Github > Settings > Secrets and variables > Actions :
+#   VERCEL_TOKEN       Vercel > Account Settings > Tokens > Create
+#   VERCEL_ORG_ID      Vercel > Account Settings > General
+#   VERCEL_PROJECT_ID  Vercel > projet clientex-two > Settings > General
+
+name: Deploiement Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Les secrets passent par l'environnement, jamais interpoles dans le
+      # script : un jeton contenant un caractere special casserait le shell.
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifier la presence des secrets
+        id: guard
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Secrets Vercel absents. Deploiement ignore, voir README section 8."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.ready == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dependances
+        if: steps.guard.outputs.ready == 'true'
+        run: npm ci
+
+      # Garde-fou : si le projet ne compile pas, rien ne part. Vercel refait
+      # ensuite son propre build a partir des sources, en suivant vercel.json.
+      - name: Verifier les types et le build
+        if: steps.guard.outputs.ready == 'true'
+        run: npm run build
+
+      - name: Deployer en production
+        if: steps.guard.outputs.ready == 'true'
+        run: |
+          url=$(npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "Deploiement : $url" >> "$GITHUB_STEP_SUMMARY"

@@ -49,6 +49,10 @@ export const SEED_SETTINGS: Settings = {
  * En mode demo il permet d'ouvrir le dashboard tout de suite.
  * En production, le compte doit exister dans Supabase Auth : ce mot de passe
  * n'est PAS repris cote serveur (voir README, section admin).
+ *
+ * Le depot est public : ce mot de passe est donc lisible par tout le monde.
+ * Il n'ouvre que les donnees de demonstration stockees dans le navigateur du
+ * visiteur, jamais une base distante. Ne pas le reutiliser dans Supabase Auth.
  */
 export const SEED_ADMIN = {
   email: "renardiego@gmail.com",

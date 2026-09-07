@@ -18,3 +18,6 @@ ios/
 
 # QR de demo local, regenere a la demande
 brand/qr-demo-lan.png
+
+# Dossier de liaison du CLI Vercel (projectId, orgId)
+.vercel

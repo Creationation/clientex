@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { CalendarPlus, Check, Download, Phone } from "lucide-react";
+import { CalendarPlus, Check, Copy, Download, ExternalLink, Phone } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SALON, SALON_ADDRESS_LINE } from "@/data/salon";
 import { buildIcs, downloadIcs, googleCalendarUrl } from "@/lib/ics";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, fromDateKey } from "@/lib/utils";
 import type { Booking } from "@/data/types";
 import { Wordmark } from "@/components/Header";
 
@@ -13,10 +14,13 @@ interface ConfirmationState {
   barberLabel: string;
 }
 
+export const manageUrl = (token: string) => `/termin/verwalten/${token}`;
+
 export default function Confirmation() {
   const { t, lang } = useLanguage();
   const location = useLocation();
   const state = location.state as ConfirmationState | null;
+  const [copied, setCopied] = useState(false);
 
   if (!state?.booking) return <Navigate to="/termin" replace />;
 
@@ -31,12 +35,24 @@ export default function Confirmation() {
     uid: booking.id,
   };
 
-  const prettyDate = new Date(booking.booking_date).toLocaleDateString(lang, {
+  const prettyDate = fromDateKey(booking.booking_date).toLocaleDateString(lang, {
     weekday: "long",
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
+
+  const absoluteManage = `${window.location.origin}${manageUrl(booking.manage_token)}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(absoluteManage);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* presse-papiers indisponible : le lien reste cliquable */
+    }
+  };
 
   return (
     <div className="min-h-screen bg-paper-soft">
@@ -61,9 +77,16 @@ export default function Confirmation() {
         <div className="mt-10 w-full rounded-3xl border border-carbon/10 bg-white p-7 text-left shadow-soft">
           <div className="flex items-baseline justify-between gap-4 border-b border-carbon/10 pb-5">
             <span className="font-display text-[21px] font-medium text-carbon">{serviceLabel}</span>
-            <span className="shrink-0 font-display text-[24px] font-semibold text-carbon">
-              {formatPrice(booking.price)}
-              <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
+            <span className="shrink-0 text-right">
+              {booking.discount > 0 ? (
+                <span className="block font-body text-[12px] text-stone line-through">
+                  {formatPrice(booking.price + booking.discount)} EUR
+                </span>
+              ) : null}
+              <span className="font-display text-[24px] font-semibold text-carbon">
+                {formatPrice(booking.price)}
+                <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
+              </span>
             </span>
           </div>
 
@@ -72,6 +95,9 @@ export default function Confirmation() {
             <Row label={t.booking.time} value={`${booking.start_time} - ${booking.end_time}`} />
             <Row label={t.booking.barber} value={barberLabel} />
             <Row label={t.booking.duration} value={`${booking.duration_min} ${t.common.min}`} />
+            {booking.promo_code ? (
+              <Row label={t.booking.discount} value={`${booking.promo_code} · - ${formatPrice(booking.discount)} EUR`} />
+            ) : null}
             <Row label={t.contact.address} value={SALON_ADDRESS_LINE} />
             <Row label={t.confirmation.reference} value={booking.id.slice(-8).toUpperCase()} />
           </dl>
@@ -96,6 +122,22 @@ export default function Confirmation() {
               <CalendarPlus size={14} />
               {t.confirmation.googleCalendar}
             </a>
+          </div>
+        </div>
+
+        {/* Lien de gestion : le client peut voir ou annuler sans compte */}
+        <div className="mt-8 w-full rounded-3xl border border-brass/25 bg-brass/[0.06] p-6 text-left">
+          <p className="eyebrow">{t.confirmation.manageTitle}</p>
+          <p className="mt-2 font-body text-[13px] leading-relaxed text-carbon">
+            {t.confirmation.manageSub}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link to={manageUrl(booking.manage_token)} className="btn-ghost !px-5 !py-3">
+              <ExternalLink size={13} /> {t.confirmation.manageLink}
+            </Link>
+            <button onClick={copy} className="btn-ghost !px-5 !py-3">
+              <Copy size={13} /> {copied ? t.confirmation.copied : t.confirmation.copyLink}
+            </button>
           </div>
         </div>
 

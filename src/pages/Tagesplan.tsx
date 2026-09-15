@@ -43,9 +43,15 @@ export default function Tagesplan() {
   }, [key, version]);
 
   // Rafraichissement automatique : la tablette reste ouverte toute la journee.
+  // En plus du temps reel, un rafraichissement par minute couvre les cas ou
+  // la connexion Realtime a ete perdue.
   useEffect(() => {
     const id = window.setInterval(() => setVersion((v) => v + 1), 60_000);
-    return () => window.clearInterval(id);
+    const unsubscribe = db.subscribeBookings(() => setVersion((v) => v + 1));
+    return () => {
+      window.clearInterval(id);
+      unsubscribe();
+    };
   }, []);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);

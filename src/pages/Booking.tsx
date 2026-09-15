@@ -1,41 +1,110 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Plus, X } from "lucide-react";
+import {
+  ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Plus, RotateCcw, Tag, X,
+} from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSalonData } from "@/hooks/useSalonData";
+import { useNextAvailability } from "@/hooks/useNextAvailability";
 import { db } from "@/lib/db";
-import { buildSlots, isShopOpen } from "@/lib/slots";
-import { addDays, cn, formatPrice, toDateKey, toMinutes } from "@/lib/utils";
-import type { Barber, BlockedSlot, BusySlot, Service } from "@/data/types";
+import { buildSlots, isShopOpen, type NextSlot } from "@/lib/slots";
+import { addDays, cn, formatPrice, fromDateKey, toDateKey, toMinutes } from "@/lib/utils";
+import type { BarberAbsence, BlockedSlot, BusySlot, PromoQuote, Service } from "@/data/types";
 import { Wordmark } from "@/components/Header";
 import { serviceName } from "@/components/sections/Services";
 import { barberRole } from "@/components/sections/Team";
 
 const STEPS = [0, 1, 2, 3, 4] as const;
 
+/**
+ * Brouillon de reservation. Un client qui quitte la page (appel, autre
+ * onglet, telephone verrouille) retrouve sa selection en revenant. Meme idee
+ * que sur sitdown, sans notification native.
+ */
+const DRAFT_KEY = "delherren_booking_draft";
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+interface Draft {
+  savedAt: number;
+  step: number;
+  serviceIds: string[];
+  barberId: string | null;
+  barberTouched: boolean;
+  dateKey: string;
+  time: string;
+  name: string;
+  email: string;
+  phone: string;
+  notes: string;
+  promoInput: string;
+}
+
+function readDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as Draft;
+    if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+      localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Booking() {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { services, barbers, openingHours, settings, loading } = useSalonData();
+  const { services, barbers, openingHours, barberHours, settings, loading } = useSalonData();
 
-  const [step, setStep] = useState(0);
+  const presetService = params.get("service");
+  const presetBarber = params.get("barber");
+
+  // Le brouillon est lu une seule fois. Un lien direct (?service=, ?barber=)
+  // a la priorite sur la selection memorisee, mais on garde les coordonnees.
+  const initialDraft = useRef<Draft | null>(readDraft());
+  const draft = initialDraft.current;
+  const draftUsed = Boolean(draft) && !presetService && !presetBarber;
+
+  const [step, setStep] = useState(draftUsed ? Math.min(draft!.step, 3) : 0);
   const [serviceIds, setServiceIds] = useState<string[]>(() => {
-    const preset = params.get("service");
-    return preset ? [preset] : [];
+    if (presetService) return [presetService];
+    return draftUsed ? draft!.serviceIds : [];
   });
-  const [barberId, setBarberId] = useState<string | null>(params.get("barber"));
-  const [barberTouched, setBarberTouched] = useState(Boolean(params.get("barber")));
-  const [dateKey, setDateKey] = useState<string>("");
-  const [time, setTime] = useState<string>("");
+  const [barberId, setBarberId] = useState<string | null>(
+    presetBarber ?? (draftUsed ? draft!.barberId : null),
+  );
+  const [barberTouched, setBarberTouched] = useState(
+    Boolean(presetBarber) || (draftUsed ? draft!.barberTouched : false),
+  );
+  const [dateKey, setDateKey] = useState<string>(draftUsed ? draft!.dateKey : "");
+  const [time, setTime] = useState<string>(draftUsed ? draft!.time : "");
+  const [restored, setRestored] = useState(draftUsed && draft!.serviceIds.length > 0);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
+  const [name, setName] = useState(draft?.name ?? "");
+  const [email, setEmail] = useState(draft?.email ?? "");
+  const [phone, setPhone] = useState(draft?.phone ?? "");
+  const [notes, setNotes] = useState(draft?.notes ?? "");
+
+  const [promoInput, setPromoInput] = useState(draft?.promoInput ?? "");
+  const [promo, setPromo] = useState<PromoQuote | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
 
   const [dayBusy, setDayBusy] = useState<BusySlot[]>([]);
   const [dayBlocked, setDayBlocked] = useState<BlockedSlot[]>([]);
+  const [dayAbsences, setDayAbsences] = useState<BarberAbsence[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +115,10 @@ export default function Booking() {
     .filter((s): s is Service => Boolean(s));
 
   const totalDuration = selected.reduce((sum, s) => sum + s.duration_min, 0);
-  const totalPrice = selected.reduce((sum, s) => sum + s.price, 0);
-  const barber: Barber | undefined = barbers.find((b) => b.id === barberId);
+  const subtotal = selected.reduce((sum, s) => sum + s.price, 0);
+  const discount = promo ? Math.min(promo.discount, subtotal) : 0;
+  const total = subtotal - discount;
+  const barber = barbers.find((b) => b.id === barberId);
 
   const toggleService = (id: string) => {
     setTime("");
@@ -57,6 +128,45 @@ export default function Booking() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [step]);
+
+  /* Sauvegarde du brouillon a chaque changement */
+  useEffect(() => {
+    if (loading) return;
+    const payload: Draft = {
+      savedAt: Date.now(),
+      step,
+      serviceIds,
+      barberId,
+      barberTouched,
+      dateKey,
+      time,
+      name,
+      email,
+      phone,
+      notes,
+      promoInput,
+    };
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }, [loading, step, serviceIds, barberId, barberTouched, dateKey, time, name, email, phone, notes, promoInput]);
+
+  const startOver = () => {
+    clearDraft();
+    initialDraft.current = null;
+    setRestored(false);
+    setStep(0);
+    setServiceIds([]);
+    setBarberId(null);
+    setBarberTouched(false);
+    setDateKey("");
+    setTime("");
+    setPromo(null);
+    setPromoInput("");
+    setPromoError(null);
+  };
 
   /* Jours ouvrables proposes, limites par max_advance_days */
   const availableDates = useMemo(() => {
@@ -70,7 +180,9 @@ export default function Booking() {
   }, [openingHours, settings.max_advance_days]);
 
   useEffect(() => {
-    if (!dateKey && availableDates.length > 0) setDateKey(toDateKey(availableDates[0]));
+    if (availableDates.length === 0) return;
+    const valid = dateKey && availableDates.some((d) => toDateKey(d) === dateKey);
+    if (!valid) setDateKey(toDateKey(availableDates[0]));
   }, [availableDates, dateKey]);
 
   /* Chargement des creneaux occupes du jour selectionne */
@@ -78,16 +190,22 @@ export default function Booking() {
     if (!dateKey) return;
     let cancelled = false;
     setSlotsLoading(true);
-    Promise.all([db.listBusy(dateKey, dateKey), db.listBlocked(dateKey, dateKey)])
-      .then(([b, blk]) => {
+    Promise.all([
+      db.listBusy(dateKey, dateKey),
+      db.listBlocked(dateKey, dateKey),
+      db.listAbsences(dateKey, dateKey),
+    ])
+      .then(([b, blk, abs]) => {
         if (cancelled) return;
         setDayBusy(b);
         setDayBlocked(blk);
+        setDayAbsences(abs);
       })
       .catch(() => {
         if (!cancelled) {
           setDayBusy([]);
           setDayBlocked([]);
+          setDayAbsences([]);
         }
       })
       .finally(() => {
@@ -106,12 +224,15 @@ export default function Booking() {
       date,
       durationMin: totalDuration,
       barberId,
+      barbers,
       openingHours,
+      barberHours,
+      absences: dayAbsences,
       busy: dayBusy,
       blocked: dayBlocked,
       settings,
     });
-  }, [totalDuration, dateKey, barberId, openingHours, dayBusy, dayBlocked, settings, availableDates]);
+  }, [totalDuration, dateKey, barberId, barbers, openingHours, barberHours, dayAbsences, dayBusy, dayBlocked, settings, availableDates]);
 
   const grouped = useMemo(() => {
     const morning = slots.filter((s) => toMinutes(s.time) < 12 * 60);
@@ -127,6 +248,86 @@ export default function Booking() {
   }, [slots, t]);
 
   const hasFreeSlot = slots.some((s) => s.available);
+
+  /* Prochain creneau libre par barbier, pour la duree choisie */
+  const nextFree = useNextAvailability(
+    barbers,
+    openingHours,
+    barberHours,
+    settings,
+    totalDuration || 30,
+  );
+
+  const formatNext = useCallback(
+    (n: NextSlot | null | undefined): string => {
+      if (n === undefined) return "";
+      if (n === null) return t.team.noneSoon;
+      const today = toDateKey(new Date());
+      const tomorrow = toDateKey(addDays(new Date(), 1));
+      const day =
+        n.date === today
+          ? t.team.today
+          : n.date === tomorrow
+            ? t.team.tomorrow
+            : fromDateKey(n.date).toLocaleDateString(lang, { weekday: "short", day: "2-digit", month: "2-digit" });
+      return `${day} · ${n.time}`;
+    },
+    [lang, t],
+  );
+
+  /* Code promo */
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code || subtotal === 0) return;
+    setPromoBusy(true);
+    setPromoError(null);
+    try {
+      const quote = await db.quotePromo(code, subtotal);
+      setPromo(quote);
+      setPromoInput(quote.code);
+    } catch (e) {
+      const key = e instanceof Error ? e.message : "NOT_FOUND";
+      setPromo(null);
+      setPromoError(
+        t.booking.promoErrors[key as keyof typeof t.booking.promoErrors] ?? t.booking.promoErrors.NOT_FOUND,
+      );
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
+  const removePromo = () => {
+    setPromo(null);
+    setPromoInput("");
+    setPromoError(null);
+  };
+
+  // Si le panier change, la remise est recalculee (un code a montant minimum
+  // peut ne plus s'appliquer).
+  useEffect(() => {
+    if (!promo) return;
+    if (subtotal === 0) {
+      setPromo(null);
+      return;
+    }
+    let cancelled = false;
+    db.quotePromo(promo.code, subtotal)
+      .then((q) => {
+        if (!cancelled) setPromo(q);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const key = e instanceof Error ? e.message : "NOT_FOUND";
+        setPromo(null);
+        setPromoError(
+          t.booking.promoErrors[key as keyof typeof t.booking.promoErrors] ?? t.booking.promoErrors.NOT_FOUND,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal]);
 
   const canContinue = (() => {
     if (step === 0) return selected.length > 0;
@@ -160,7 +361,9 @@ export default function Booking() {
         client_phone: phone.trim(),
         notes: notes.trim(),
         language: lang,
+        promo_code: promo?.code,
       });
+      clearDraft();
       navigate("/termin/bestaetigt", {
         state: {
           booking,
@@ -173,14 +376,27 @@ export default function Booking() {
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
-      setError(message === "SLOT_TAKEN" ? t.booking.errorSlotTaken : t.booking.errorGeneric);
-      setStep(3);
+      if (message === "SLOT_TAKEN") {
+        setError(t.booking.errorSlotTaken);
+        setStep(3);
+      } else if (message === "OUTSIDE_HOURS") {
+        setError(t.booking.errorOutsideHours);
+        setStep(3);
+      } else if (message.startsWith("PROMO_")) {
+        const key = message.replace("PROMO_", "") as keyof typeof t.booking.promoErrors;
+        setPromo(null);
+        setPromoError(t.booking.promoErrors[key] ?? t.booking.promoErrors.NOT_FOUND);
+        setError(t.booking.promoErrors[key] ?? t.booking.promoErrors.NOT_FOUND);
+      } else {
+        setError(t.booking.errorGeneric);
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const dateWindow = availableDates.slice(dateOffset, dateOffset + 7);
+  const policy = t.booking.policy.replace("{hours}", String(settings.cancel_deadline_hours));
 
   return (
     <div className="min-h-screen bg-paper-soft pb-28 md:pb-0">
@@ -232,6 +448,18 @@ export default function Booking() {
             ))}
           </ol>
 
+          {restored ? (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/30 bg-brass/[0.07] px-4 py-3">
+              <p className="font-body text-[13px] text-carbon">{t.booking.draftRestored}</p>
+              <button
+                onClick={startOver}
+                className="flex items-center gap-2 font-body text-[11px] font-semibold uppercase tracking-widest text-brass transition-colors hover:text-carbon"
+              >
+                <RotateCcw size={12} /> {t.booking.draftDiscard}
+              </button>
+            </div>
+          ) : null}
+
           {loading ? (
             <p className="flex items-center gap-3 text-stone">
               <Loader2 size={16} className="animate-spin" /> {t.common.loading}
@@ -272,7 +500,7 @@ export default function Booking() {
                           {serviceName(s, lang)}
                         </span>
                         <span className="mt-0.5 block font-body text-[12px] text-stone">
-                          {s.duration_min} {t.common.min}
+                          {s.duration_min} {t.common.min} · {t.services.groups[s.category]}
                         </span>
                       </span>
                       <span className="shrink-0 font-display text-[18px] font-semibold text-carbon">
@@ -286,7 +514,7 @@ export default function Booking() {
             </section>
           ) : null}
 
-          {/* Etape 1 : barbier */}
+          {/* Etape 1 : barbier, avec le prochain creneau libre de chacun */}
           {step === 1 && !loading ? (
             <section>
               <StepHead title={t.booking.chooseBarber} sub={t.booking.chooseBarberSub} />
@@ -302,6 +530,8 @@ export default function Booking() {
                   badge="?"
                   title={t.team.anyBarber}
                   sub={t.team.anyBarberDesc}
+                  meta={formatNext(nextFree.any)}
+                  metaLabel={t.booking.nextFree}
                 />
                 {barbers.map((b) => (
                   <ChoiceCard
@@ -314,8 +544,11 @@ export default function Booking() {
                       setStep(2);
                     }}
                     badge={b.initials}
+                    image={b.image_url}
                     title={b.name}
                     sub={barberRole(b, lang)}
+                    meta={formatNext(nextFree[b.id])}
+                    metaLabel={t.booking.nextFree}
                   />
                 ))}
               </div>
@@ -331,6 +564,7 @@ export default function Booking() {
                   disabled={dateOffset === 0}
                   onClick={() => setDateOffset((o) => Math.max(0, o - 7))}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-carbon/15 text-carbon transition-colors hover:bg-carbon/[0.05] disabled:opacity-30"
+                  aria-label={t.admin.prev}
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -380,6 +614,7 @@ export default function Booking() {
                   disabled={dateOffset + 7 >= availableDates.length}
                   onClick={() => setDateOffset((o) => o + 7)}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-carbon/15 text-carbon transition-colors hover:bg-carbon/[0.05] disabled:opacity-30"
+                  aria-label={t.admin.next}
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -420,6 +655,7 @@ export default function Booking() {
                             disabled={!s.available}
                             onClick={() => {
                               setTime(s.time);
+                              setError(null);
                               setStep(4);
                             }}
                             className={cn(
@@ -439,6 +675,11 @@ export default function Booking() {
                   ))}
                 </div>
               )}
+              {error ? (
+                <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/[0.07] px-4 py-3 text-[14px] text-destructive">
+                  {error}
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -487,6 +728,19 @@ export default function Booking() {
                 </label>
               </div>
 
+              {/* Code promo, dans le flux mobile : l'aside est sous le formulaire */}
+              <div className="mt-6 lg:hidden">
+                <PromoField
+                  value={promoInput}
+                  onChange={setPromoInput}
+                  onApply={applyPromo}
+                  onRemove={removePromo}
+                  applied={promo}
+                  busy={promoBusy}
+                  error={promoError}
+                />
+              </div>
+
               {error ? (
                 <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/[0.07] px-4 py-3 text-[14px] text-destructive">
                   {error}
@@ -501,12 +755,11 @@ export default function Booking() {
                 ) : (
                   <>
                     <Check size={14} /> {t.booking.submit}
+                    {total > 0 ? ` · ${formatPrice(total)} EUR` : ""}
                   </>
                 )}
               </button>
-              <p className="mt-4 max-w-md text-[13px] leading-relaxed text-stone">
-                {t.booking.policy}
-              </p>
+              <p className="mt-4 max-w-md text-[13px] leading-relaxed text-stone">{policy}</p>
             </section>
           ) : null}
 
@@ -566,7 +819,7 @@ export default function Booking() {
                 label={t.booking.date}
                 value={
                   dateKey
-                    ? new Date(dateKey).toLocaleDateString(lang, {
+                    ? fromDateKey(dateKey).toLocaleDateString(lang, {
                         weekday: "long",
                         day: "2-digit",
                         month: "long",
@@ -581,12 +834,38 @@ export default function Booking() {
               />
             </dl>
 
-            <div className="mt-5 flex items-baseline justify-between border-t border-carbon/10 pt-5">
-              <span className="eyebrow">{t.booking.total}</span>
-              <span className="font-display text-[30px] font-semibold text-carbon">
-                {formatPrice(totalPrice)}
-                <span className="ml-1 font-body text-[14px] font-medium text-stone">EUR</span>
-              </span>
+            {step >= 3 ? (
+              <div className="mt-5 hidden border-t border-carbon/10 pt-5 lg:block">
+                <PromoField
+                  value={promoInput}
+                  onChange={setPromoInput}
+                  onApply={applyPromo}
+                  onRemove={removePromo}
+                  applied={promo}
+                  busy={promoBusy}
+                  error={promoError}
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-5 border-t border-carbon/10 pt-5">
+              {promo && discount > 0 ? (
+                <dl className="mb-3 space-y-2">
+                  <Row label={t.booking.subtotal} value={`${formatPrice(subtotal)} EUR`} />
+                  <Row
+                    label={`${t.booking.discount} · ${promo.code}`}
+                    value={`- ${formatPrice(discount)} EUR`}
+                    accent
+                  />
+                </dl>
+              ) : null}
+              <div className="flex items-baseline justify-between">
+                <span className="eyebrow">{t.booking.total}</span>
+                <span className="font-display text-[30px] font-semibold text-carbon">
+                  {formatPrice(total)}
+                  <span className="ml-1 font-body text-[14px] font-medium text-stone">EUR</span>
+                </span>
+              </div>
             </div>
 
             {canContinue && step < 4 ? (
@@ -609,10 +888,79 @@ export default function Booking() {
             className="btn-solid w-full shadow-lift"
           >
             {t.booking.continueBtn}
-            {totalPrice > 0 ? ` · ${formatPrice(totalPrice)} EUR` : ""}
+            {total > 0 ? ` · ${formatPrice(total)} EUR` : ""}
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PromoField({
+  value,
+  onChange,
+  onApply,
+  onRemove,
+  applied,
+  busy,
+  error,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
+  applied: PromoQuote | null;
+  busy: boolean;
+  error: string | null;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div>
+      <span className="eyebrow flex items-center gap-2">
+        <Tag size={11} /> {t.booking.promoCode}
+      </span>
+      {applied ? (
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-success/35 bg-success/[0.08] px-3 py-2.5">
+          <span className="font-body text-[13px] font-semibold tracking-wider text-success">
+            {applied.code}
+            <span className="ml-2 font-normal text-carbon">
+              - {formatPrice(applied.discount)} EUR
+            </span>
+          </span>
+          <button
+            onClick={onRemove}
+            className="font-body text-[11px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-carbon"
+          >
+            {t.booking.promoRemove}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <input
+            className="field !py-2.5 uppercase tracking-wider placeholder:normal-case placeholder:tracking-normal"
+            value={value}
+            placeholder={t.booking.promoPlaceholder}
+            onChange={(e) => onChange(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onApply();
+              }
+            }}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <button
+            onClick={onApply}
+            disabled={busy || !value.trim()}
+            className="btn-ghost shrink-0 !px-4 !py-2.5"
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : t.booking.promoApply}
+          </button>
+        </div>
+      )}
+      {error ? <p className="mt-2 font-body text-[12px] text-destructive">{error}</p> : null}
     </div>
   );
 }
@@ -632,14 +980,20 @@ function ChoiceCard({
   active,
   onClick,
   badge,
+  image,
   title,
   sub,
+  meta,
+  metaLabel,
 }: {
   active: boolean;
   onClick: () => void;
   badge: string;
+  image?: string | null;
   title: string;
   sub: string;
+  meta?: string;
+  metaLabel?: string;
 }) {
   return (
     <button
@@ -649,27 +1003,51 @@ function ChoiceCard({
         active ? "border-carbon shadow-soft" : "border-carbon/12 hover:border-carbon/30",
       )}
     >
-      <span
-        className={cn(
-          "grid h-12 w-12 shrink-0 place-items-center rounded-full border font-display text-[18px] font-semibold",
-          active ? "border-carbon bg-carbon text-paper" : "border-carbon/15 text-carbon",
-        )}
-      >
-        {badge}
-      </span>
-      <span>
+      {image ? (
+        <img
+          src={image}
+          alt=""
+          className={cn(
+            "h-12 w-12 shrink-0 rounded-full object-cover ring-2 transition-all",
+            active ? "ring-carbon" : "ring-carbon/10",
+          )}
+        />
+      ) : (
+        <span
+          className={cn(
+            "grid h-12 w-12 shrink-0 place-items-center rounded-full border font-display text-[18px] font-semibold",
+            active ? "border-carbon bg-carbon text-paper" : "border-carbon/15 text-carbon",
+          )}
+        >
+          {badge}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
         <span className="block font-display text-[18px] font-medium text-carbon">{title}</span>
         <span className="mt-0.5 block font-body text-[12px] text-stone">{sub}</span>
+        {meta ? (
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-paper-soft px-2.5 py-1 font-body text-[11px] font-medium text-carbon">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            {metaLabel ? <span className="text-stone">{metaLabel}:</span> : null} {meta}
+          </span>
+        ) : null}
       </span>
     </button>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="font-body text-[12px] text-stone">{label}</dt>
-      <dd className="text-right font-body text-[14px] font-medium text-carbon">{value}</dd>
+      <dd
+        className={cn(
+          "text-right font-body text-[14px] font-medium",
+          accent ? "text-success" : "text-carbon",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

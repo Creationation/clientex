@@ -51,12 +51,23 @@ Deno.serve(async (req) => {
 
   let text: string;
 
+  const time = (v: unknown) => String(v ?? "").slice(0, 5);
+  const who = data?.by === "client" ? "vom Kunden" : data?.by === "salon" ? "vom Salon" : "";
+
   if (type === "cancellation") {
     text = [
-      "❌ <b>Termin storniert</b>",
+      `❌ <b>Termin storniert</b>${who ? ` (${who})` : ""}`,
       "",
       `\u{1F464} ${esc(b.client_name)}`,
-      `\u{1F4C5} ${prettyDate} um ${esc(b.start_time)}`,
+      `\u{1F4C5} ${prettyDate} um ${time(b.start_time)}`,
+      `✂️ ${esc(data.serviceLabel)} bei ${esc(data.barberName)}`,
+    ].join("\n");
+  } else if (type === "rescheduled") {
+    text = [
+      "\u{1F504} <b>Termin verschoben</b>",
+      "",
+      `\u{1F464} ${esc(b.client_name)}`,
+      `\u{1F4C5} <b>${prettyDate}</b> um ${time(b.start_time)} - ${time(b.end_time)}`,
       `✂️ ${esc(data.serviceLabel)} bei ${esc(data.barberName)}`,
     ].join("\n");
   } else {
@@ -68,8 +79,8 @@ Deno.serve(async (req) => {
       `\u{1F4E7} ${esc(b.client_email)}`,
       "",
       `\u{1F4C5} <b>${prettyDate}</b>`,
-      `\u{1F551} ${esc(b.start_time)} - ${esc(b.end_time)} (${esc(b.duration_min)} Min)`,
-      `\u{1F488} ${esc(data.serviceLabel)} · ${esc(b.price)} EUR`,
+      `\u{1F551} ${time(b.start_time)} - ${time(b.end_time)} (${esc(b.duration_min)} Min)`,
+      `\u{1F488} ${esc(data.serviceLabel)} · ${esc(b.price)} EUR${Number(b.discount) > 0 ? ` (${esc(b.promo_code)} -${esc(b.discount)})` : ''}`,
       `\u{1F9D4} ${esc(data.barberName)}`,
       b.notes ? `\n\u{1F4DD} ${esc(b.notes)}` : "",
       "",

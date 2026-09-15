@@ -14,7 +14,7 @@ import Contact from "@/components/sections/Contact";
 import { useSalonData } from "@/hooks/useSalonData";
 
 export default function Landing() {
-  const { services, barbers, openingHours } = useSalonData();
+  const { services, barbers, openingHours, barberHours, settings } = useSalonData();
   const location = useLocation();
 
   // Ancre transmise depuis une autre page (ex: /impressum -> /#kontakt)
@@ -35,7 +35,13 @@ export default function Landing() {
         <Hero openingHours={openingHours} />
         <Marquee />
         <Services services={services} />
-        <Team barbers={barbers} />
+        <Team
+          barbers={barbers}
+          services={services}
+          openingHours={openingHours}
+          barberHours={barberHours}
+          settings={settings}
+        />
         <Gallery />
         <Hours openingHours={openingHours} />
         <Contact />

@@ -4,25 +4,29 @@
 --   supabase db reset          (local, applique migrations + ce seed)
 --   psql "$DB_URL" -f supabase/seed.sql   (distant)
 --
--- A CONFIRMER AVEC LE CLIENT avant mise en production :
---   - horaires exacts du lundi au dimanche
---   - duree et prix reels de chaque prestation
---   - prenoms et nombre de barbiers
+-- Prestations et prix : liste affichee en vitrine du salon (photo du
+-- 15 septembre 2026). Les durees sont des estimations, modifiables dans
+-- l'admin. A confirmer avec le client : prenoms et nombre de barbiers.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------- services --
 
 insert into public.services (slug, name_de, name_en, duration_min, price, category, sort_order)
 values
-  ('haarschnitt',       'Herrenhaarschnitt',      'Men''s haircut',       30, 25.00, 'hair',  1),
-  ('schnitt-bart',      'Haarschnitt & Bart',     'Haircut & beard',            45, 38.00, 'hair',  2),
-  ('rasiermesser-cut',  'Rasiermesser-Schnitt',   'Razor cut',           40, 30.00, 'hair',  3),
-  ('kinderhaarschnitt', 'Kinderhaarschnitt',      'Kids haircut',       25, 18.00, 'hair',  4),
-  ('bartpflege',        'Bartpflege',             'Beard trim',           20, 15.00, 'beard', 5),
-  ('messerrasur',       'Rasur mit Rasiermesser', 'Straight razor shave',        30, 22.00, 'shave', 6),
-  ('kopfrasur',         'Kopfrasur',              'Head shave',             20, 18.00, 'shave', 7),
-  ('augenbrauen',       'Augenbrauen',            'Eyebrow trimming',           10,  8.00, 'extra', 8),
-  ('waschen-styling',   'Waschen & Styling',      'Shampoo & styling', 15, 10.00, 'extra', 9)
+  ('schneiden-foehnen-stylen',         'Schneiden, Föhnen, Stylen',          'Cut, blow-dry & style',        30, 18.00, 'hair',  1),
+  ('schneiden-waschen-foehnen-stylen', 'Schneiden, Waschen, Föhnen, Stylen', 'Cut, wash, blow-dry & style',  40, 23.00, 'hair',  2),
+  ('maschinenhaarschnitt',             'Maschinenhaarschnitt',               'Clipper cut',                  20, 14.00, 'hair',  3),
+  ('waschen-foehnen-stylen',           'Waschen, Föhnen, Stylen',            'Wash, blow-dry & style',       15,  7.00, 'hair',  4),
+  ('bartrasur',                        'Bartrasur',                          'Beard shave',                  15, 10.00, 'beard', 5),
+  ('modellrasur',                      'Modellrasur',                        'Beard shaping',                20, 12.00, 'beard', 6),
+  ('kopfrasur',                        'Kopf rasieren',                      'Head shave',                   20, 14.00, 'shave', 7),
+  ('waschen-schneiden-faerben',        'Waschen, Schneiden, Färben',         'Wash, cut & colour',           60, 33.00, 'color', 8),
+  ('haare-faerben',                    'Haare färben',                       'Hair colouring',               30, 15.00, 'color', 9),
+  ('bart-faerben',                     'Bart färben',                        'Beard colouring',              15, 10.00, 'color', 10),
+  ('kinder-bis-12',                    'Kinder bis 12 Jahre',                'Kids up to 12 years',          25, 12.00, 'kids',  11),
+  ('augenbrauen-zupfen',               'Augenbrauen zupfen',                 'Eyebrow plucking',             10,  7.00, 'extra', 12),
+  ('gesichtsmaske',                    'Gesichtsmaske',                      'Face mask',                    15,  7.00, 'extra', 13),
+  ('gesichtsharzen',                   'Gesichtsharzen',                     'Face waxing',                  15,  7.00, 'extra', 14)
 on conflict (slug) do update set
   name_de      = excluded.name_de,
   name_en      = excluded.name_en,
@@ -30,6 +34,12 @@ on conflict (slug) do update set
   price        = excluded.price,
   category     = excluded.category,
   sort_order   = excluded.sort_order;
+
+-- Les anciennes prestations de demonstration, si elles existent encore,
+-- sont desactivees plutot que supprimees : des reservations peuvent y pointer.
+update public.services set active = false
+where slug in ('haarschnitt','schnitt-bart','rasiermesser-cut','kinderhaarschnitt',
+               'bartpflege','messerrasur','augenbrauen','waschen-styling');
 
 -- ----------------------------------------------------------------- barbers --
 
@@ -60,9 +70,19 @@ on conflict (weekday) do update set
 
 -- ---------------------------------------------------------------- settings --
 
-insert into public.settings (id, slot_granularity_min, min_lead_time_min, max_advance_days, buffer_after_min, auto_confirm)
-values (1, 15, 60, 60, 0, true)
+insert into public.settings (id, slot_granularity_min, min_lead_time_min, max_advance_days, buffer_after_min,
+                             auto_confirm, cancel_deadline_hours, email_reminders, reminder_24h, reminder_2h)
+values (1, 15, 60, 60, 0, true, 24, true, true, true)
 on conflict (id) do nothing;
+
+-- ------------------------------------------------------------- promo_codes --
+-- Codes de demonstration. A remplacer par ceux du salon, ou a desactiver.
+
+insert into public.promo_codes (code, description, discount_type, discount_value, min_order, max_uses)
+values
+  ('WILLKOMMEN10', '10 % für Neukunden', 'percent', 10, 0,  null),
+  ('DEL5',         '5 EUR ab 25 EUR',    'fixed',   5,  25, 100)
+on conflict (code) do nothing;
 
 -- ------------------------------------------------------------- admin_users --
 --
@@ -78,7 +98,7 @@ from auth.users
 where lower(email) = 'renardiego@gmail.com'
 on conflict (user_id) do update set name = excluded.name;
 
--- 3. Les acces suivants se creent depuis l'onglet "Zugange" du dashboard,
+-- 3. Les acces suivants se creent depuis l'onglet "Zugänge" du dashboard,
 --    a condition que le compte existe deja dans Auth (fonction grant_admin).
 --
 -- Sans l'etape 2, aucun compte ne peut ouvrir /admin.

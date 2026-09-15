@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { CalendarRange, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type {
-  AdminAccount, Barber, BlockedSlot, OpeningHour, Service, Settings,
+  AdminAccount, Barber, BarberHour, BlockedSlot, OpeningHour, Service, ServiceCategory, Settings,
 } from "@/data/types";
 import { db } from "@/lib/db";
 import { cn, toDateKey, uid } from "@/lib/utils";
+import { BarberSchedule } from "./BarberSchedule";
 import { Empty, Field, Toggle } from "./shared";
+
+const CATEGORIES: ServiceCategory[] = ["hair", "beard", "shave", "color", "kids", "extra"];
 
 const DeleteButton = ({ onClick }: { onClick: () => void }) => (
   <button
@@ -90,7 +93,7 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
                 value={s.category}
                 onChange={(e) => patch(s.id, { category: e.target.value as Service["category"] })}
               >
-                {(["hair", "beard", "shave", "extra"] as const).map((c) => (
+                {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {t.services.groups[c]}
                   </option>
@@ -138,9 +141,20 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
 
 /* ------------------------------- Barbiere ------------------------------- */
 
-export function BarbersTab({ barbers, reload }: { barbers: Barber[]; reload: () => void }) {
+export function BarbersTab({
+  barbers,
+  openingHours,
+  barberHours,
+  reload,
+}: {
+  barbers: Barber[];
+  openingHours: OpeningHour[];
+  barberHours: BarberHour[];
+  reload: () => void;
+}) {
   const { t } = useLanguage();
   const [draft, setDraft] = useState<Barber[]>(barbers);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => setDraft(barbers), [barbers]);
 
@@ -230,6 +244,24 @@ export function BarbersTab({ barbers, reload }: { barbers: Barber[]; reload: () 
               />
             </div>
           </div>
+
+          {/* Horaires propres et absences, repliables */}
+          <button
+            onClick={() => setOpenId((cur) => (cur === b.id ? null : b.id))}
+            className="mt-3 flex items-center gap-2 font-body text-[11px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-carbon"
+          >
+            <CalendarRange size={13} />
+            {t.admin.schedule} · {t.admin.absences}
+            <ChevronDown size={13} className={cn("transition-transform", openId === b.id && "rotate-180")} />
+          </button>
+          {openId === b.id ? (
+            <BarberSchedule
+              barber={b}
+              openingHours={openingHours}
+              barberHours={barberHours}
+              reload={reload}
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -347,7 +379,44 @@ export function HoursTab({
             />
           </Field>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <Field label={t.admin.cancelDeadline}>
+            <input
+              type="number"
+              min={0}
+              className="field !py-2.5"
+              value={cfg.cancel_deadline_hours}
+              onChange={(e) => setCfg({ ...cfg, cancel_deadline_hours: Number(e.target.value) })}
+            />
+          </Field>
+        </div>
+
+        <h3 className="mt-6 font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
+          {t.admin.reminders}
+        </h3>
+        <p className="mt-1 font-body text-[12px] text-stone">{t.admin.remindersHint}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Toggle
+            on={cfg.email_reminders}
+            onClick={() => setCfg({ ...cfg, email_reminders: !cfg.email_reminders })}
+            labelOn={t.admin.reminders}
+            labelOff={t.admin.reminders}
+          />
+          <Toggle
+            on={cfg.reminder_24h}
+            onClick={() => setCfg({ ...cfg, reminder_24h: !cfg.reminder_24h })}
+            labelOn={t.admin.reminder24}
+            labelOff={t.admin.reminder24}
+          />
+          <Toggle
+            on={cfg.reminder_2h}
+            onClick={() => setCfg({ ...cfg, reminder_2h: !cfg.reminder_2h })}
+            labelOn={t.admin.reminder2}
+            labelOff={t.admin.reminder2}
+          />
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-carbon/10 pt-5">
           <Toggle
             on={cfg.auto_confirm}
             onClick={() => setCfg({ ...cfg, auto_confirm: !cfg.auto_confirm })}

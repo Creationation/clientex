@@ -1,21 +1,29 @@
-import type { Barber, OpeningHour, Service, Settings } from "./types";
+import type { Barber, OpeningHour, PromoCode, Service, Settings } from "./types";
 
 /**
  * DONNEES DE DEMO / SEED
- * A confirmer avec le client : durees, prix, prenoms des barbiers, horaires.
- * Editables dans l'admin, repliquees dans supabase/seed.sql.
+ *
+ * Les prestations et les prix sont ceux de la liste affichee en vitrine du
+ * salon (photo du 15 septembre 2026). Les durees ne figurent pas sur la
+ * liste : ce sont des estimations raisonnables, modifiables dans l'admin.
+ * Repliquees dans supabase/seed.sql.
  */
 
 export const SEED_SERVICES: Service[] = [
-  { id: "svc-haircut",    slug: "haarschnitt",        name_de: "Herrenhaarschnitt",       name_en: "Men's haircut",      duration_min: 30, price: 25, is_from_price: false, category: "hair",  sort_order: 1, active: true },
-  { id: "svc-cutbeard",   slug: "schnitt-bart",       name_de: "Haarschnitt & Bart",      name_en: "Haircut & beard",           duration_min: 45, price: 38, is_from_price: false, category: "hair",  sort_order: 2, active: true },
-  { id: "svc-razorcut",   slug: "rasiermesser-cut",   name_de: "Rasiermesser-Schnitt",    name_en: "Razor cut",          duration_min: 40, price: 30, is_from_price: false, category: "hair",  sort_order: 3, active: true },
-  { id: "svc-kids",       slug: "kinderhaarschnitt",  name_de: "Kinderhaarschnitt",       name_en: "Kids haircut",      duration_min: 25, price: 18, is_from_price: false, category: "hair",  sort_order: 4, active: true },
-  { id: "svc-beard",      slug: "bartpflege",         name_de: "Bartpflege",              name_en: "Beard trim",          duration_min: 20, price: 15, is_from_price: false, category: "beard", sort_order: 5, active: true },
-  { id: "svc-shave",      slug: "messerrasur",        name_de: "Rasur mit Rasiermesser",  name_en: "Straight razor shave",       duration_min: 30, price: 22, is_from_price: false, category: "shave", sort_order: 6, active: true },
-  { id: "svc-headshave",  slug: "kopfrasur",          name_de: "Kopfrasur",               name_en: "Head shave",            duration_min: 20, price: 18, is_from_price: false, category: "shave", sort_order: 7, active: true },
-  { id: "svc-brows",      slug: "augenbrauen",        name_de: "Augenbrauen",             name_en: "Eyebrow trimming",          duration_min: 10, price: 8,  is_from_price: false, category: "extra", sort_order: 8, active: true },
-  { id: "svc-wash",       slug: "waschen-styling",    name_de: "Waschen & Styling",       name_en: "Shampoo & styling", duration_min: 15, price: 10, is_from_price: false, category: "extra", sort_order: 9, active: true },
+  { id: "svc-cut-style",      slug: "schneiden-foehnen-stylen",          name_de: "Schneiden, Föhnen, Stylen",          name_en: "Cut, blow-dry & style",         duration_min: 30, price: 18, is_from_price: false, category: "hair",  sort_order: 1,  active: true },
+  { id: "svc-cut-wash-style", slug: "schneiden-waschen-foehnen-stylen",  name_de: "Schneiden, Waschen, Föhnen, Stylen", name_en: "Cut, wash, blow-dry & style",   duration_min: 40, price: 23, is_from_price: false, category: "hair",  sort_order: 2,  active: true },
+  { id: "svc-machine",        slug: "maschinenhaarschnitt",              name_de: "Maschinenhaarschnitt",               name_en: "Clipper cut",                   duration_min: 20, price: 14, is_from_price: false, category: "hair",  sort_order: 3,  active: true },
+  { id: "svc-wash-style",     slug: "waschen-foehnen-stylen",            name_de: "Waschen, Föhnen, Stylen",            name_en: "Wash, blow-dry & style",        duration_min: 15, price: 7,  is_from_price: false, category: "hair",  sort_order: 4,  active: true },
+  { id: "svc-beardshave",     slug: "bartrasur",                         name_de: "Bartrasur",                          name_en: "Beard shave",                   duration_min: 15, price: 10, is_from_price: false, category: "beard", sort_order: 5,  active: true },
+  { id: "svc-modelshave",     slug: "modellrasur",                       name_de: "Modellrasur",                        name_en: "Beard shaping",                 duration_min: 20, price: 12, is_from_price: false, category: "beard", sort_order: 6,  active: true },
+  { id: "svc-headshave",      slug: "kopfrasur",                         name_de: "Kopf rasieren",                      name_en: "Head shave",                    duration_min: 20, price: 14, is_from_price: false, category: "shave", sort_order: 7,  active: true },
+  { id: "svc-wash-cut-color", slug: "waschen-schneiden-faerben",         name_de: "Waschen, Schneiden, Färben",         name_en: "Wash, cut & colour",            duration_min: 60, price: 33, is_from_price: false, category: "color", sort_order: 8,  active: true },
+  { id: "svc-haircolor",      slug: "haare-faerben",                     name_de: "Haare färben",                       name_en: "Hair colouring",                duration_min: 30, price: 15, is_from_price: false, category: "color", sort_order: 9,  active: true },
+  { id: "svc-beardcolor",     slug: "bart-faerben",                      name_de: "Bart färben",                        name_en: "Beard colouring",               duration_min: 15, price: 10, is_from_price: false, category: "color", sort_order: 10, active: true },
+  { id: "svc-kids",           slug: "kinder-bis-12",                     name_de: "Kinder bis 12 Jahre",                name_en: "Kids up to 12 years",           duration_min: 25, price: 12, is_from_price: false, category: "kids",  sort_order: 11, active: true },
+  { id: "svc-brows",          slug: "augenbrauen-zupfen",                name_de: "Augenbrauen zupfen",                 name_en: "Eyebrow plucking",              duration_min: 10, price: 7,  is_from_price: false, category: "extra", sort_order: 12, active: true },
+  { id: "svc-facemask",       slug: "gesichtsmaske",                     name_de: "Gesichtsmaske",                      name_en: "Face mask",                     duration_min: 15, price: 7,  is_from_price: false, category: "extra", sort_order: 13, active: true },
+  { id: "svc-facewax",        slug: "gesichtsharzen",                    name_de: "Gesichtsharzen",                     name_en: "Face waxing",                   duration_min: 15, price: 7,  is_from_price: false, category: "extra", sort_order: 14, active: true },
 ];
 
 export const SEED_BARBERS: Barber[] = [
@@ -24,7 +32,7 @@ export const SEED_BARBERS: Barber[] = [
   { id: "brb-serkan", name: "Serkan", initials: "S", role_de: "Barber & Rasur-Spezialist", role_en: "Barber & shave specialist", image_url: "/media/salon-3.jpg", sort_order: 3, active: true },
 ];
 
-/** 0 = dimanche ... 6 = samedi. A CONFIRMER avec le client. */
+/** 0 = dimanche ... 6 = samedi. Horaires releves sur la vitrine du salon. */
 export const SEED_OPENING_HOURS: OpeningHour[] = [
   { weekday: 1, is_open: true,  open_time: "09:00", close_time: "19:00" },
   { weekday: 2, is_open: true,  open_time: "09:00", close_time: "19:00" },
@@ -42,7 +50,17 @@ export const SEED_SETTINGS: Settings = {
   max_advance_days: 60,
   buffer_after_min: 0,
   auto_confirm: true,
+  cancel_deadline_hours: 24,
+  email_reminders: true,
+  reminder_24h: true,
+  reminder_2h: true,
 };
+
+/** Codes de demonstration, pour montrer la mecanique. A remplacer par le salon. */
+export const SEED_PROMO_CODES: PromoCode[] = [
+  { id: "prm-welcome", code: "WILLKOMMEN10", description: "10 % für Neukunden", discount_type: "percent", discount_value: 10, min_order: 0,  max_uses: null, current_uses: 0, active: true, expires_at: null },
+  { id: "prm-del5",    code: "DEL5",         description: "5 EUR ab 25 EUR",    discount_type: "fixed",   discount_value: 5,  min_order: 25, max_uses: 100,  current_uses: 0, active: true, expires_at: null },
+];
 
 /**
  * Compte admin de demarrage.

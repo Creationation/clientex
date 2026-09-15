@@ -5,7 +5,7 @@ import { Reveal, SectionHead } from "@/components/ui/Primitives";
 import type { Service } from "@/data/types";
 import { formatPrice } from "@/lib/utils";
 
-const GROUP_ORDER: Service["category"][] = ["hair", "beard", "shave", "extra"];
+const GROUP_ORDER: Service["category"][] = ["hair", "beard", "shave", "color", "kids", "extra"];
 
 export function serviceName(s: Service, lang: string): string {
   return lang === "en" ? s.name_en || s.name_de : s.name_de;

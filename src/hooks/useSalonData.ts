@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { db } from "@/lib/db";
-import type { Barber, OpeningHour, Service, Settings } from "@/data/types";
+import type { Barber, BarberHour, OpeningHour, Service, Settings } from "@/data/types";
 import { SEED_SETTINGS } from "@/data/seed";
 
 interface SalonData {
   services: Service[];
   barbers: Barber[];
   openingHours: OpeningHour[];
+  barberHours: BarberHour[];
   settings: Settings;
   loading: boolean;
   error: string | null;
@@ -18,6 +19,7 @@ export function useSalonData(includeInactive = false): SalonData {
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [openingHours, setOpeningHours] = useState<OpeningHour[]>([]);
+  const [barberHours, setBarberHours] = useState<BarberHour[]>([]);
   const [settings, setSettings] = useState<Settings>(SEED_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,13 +34,15 @@ export function useSalonData(includeInactive = false): SalonData {
       db.listServices(includeInactive),
       db.listBarbers(includeInactive),
       db.listOpeningHours(),
+      db.listBarberHours(),
       db.getSettings(),
     ])
-      .then(([s, b, h, st]) => {
+      .then(([s, b, h, bh, st]) => {
         if (cancelled) return;
         setServices(s);
         setBarbers(b);
         setOpeningHours(h);
+        setBarberHours(bh);
         setSettings(st);
         setError(null);
       })
@@ -53,5 +57,5 @@ export function useSalonData(includeInactive = false): SalonData {
     };
   }, [includeInactive, tick]);
 
-  return { services, barbers, openingHours, settings, loading, error, reload };
+  return { services, barbers, openingHours, barberHours, settings, loading, error, reload };
 }

@@ -1,13 +1,23 @@
 project_id = "delherren"
 
 [functions]
-  # Appelee par le navigateur : pas de JWT requis, la validation est faite
-  # dans la fonction elle-meme (voir create-booking/index.ts).
+  # Appelees par le navigateur sans session : pas de JWT requis, la
+  # validation est faite dans la fonction elle-meme.
   [functions.create-booking]
     verify_jwt = false
+  [functions.cancel-booking]
+    verify_jwt = false
 
-  # Fonctions internes : appelees uniquement avec le bearer service role.
+  # Appelee par le dashboard avec le JWT de l'admin ; la fonction verifie
+  # is_admin() avant d'agir.
+  [functions.send-booking-update]
+    verify_jwt = true
+
+  # Fonctions internes : appelees uniquement avec le bearer service role
+  # (par une autre fonction ou par pg_cron).
   [functions.send-booking-confirmation]
     verify_jwt = true
   [functions.send-telegram-notification]
+    verify_jwt = true
+  [functions.process-reminders]
     verify_jwt = true

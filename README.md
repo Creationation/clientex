@@ -43,7 +43,11 @@ appeler `resetDemoData()` depuis `src/lib/db.ts`.
 | `npm run dev` | serveur de developpement sur le port 5180 |
 | `npm run build` | typecheck TypeScript puis build de production dans `dist/` |
 | `npm run preview` | sert le build de production en local |
+| `npm run test` | tests unitaires Vitest : moteur de creneaux, remises, mode demo |
 | `npm run lint` | ESLint |
+
+Avant de dire qu'une modification est terminee : `npm run test` puis
+`npm run build`. Les deux doivent passer.
 
 ---
 
@@ -90,22 +94,27 @@ les Edge Functions par Supabase, il n'y a rien a faire.
 src/
   components/
     sections/     Hero, Services, Team, Gallery, Hours, Contact, Marquee
-    admin/        vues calendrier, editeurs CRUD, primitives partagees
+    admin/        vues calendrier, editeurs CRUD, fiche rendez-vous
+                  (deplacer, annuler), creation manuelle, horaires et
+                  absences par barbier, statistiques, codes promo
     ui/           Reveal, SectionHead, Photo, Pill
     Header.tsx  Footer.tsx  FloatingActions.tsx  Seo.tsx
   contexts/       LanguageContext (DE / EN)
   data/           types, seed, fiche salon, textes legaux
-  hooks/          useSalonData, useAdminAuth, useReveal
+  hooks/          useSalonData, useAdminAuth, useNextAvailability, useReveal
   i18n/           de.ts, en.ts (le type est derive de de.ts)
   lib/            db.ts (adaptateurs), slots.ts (moteur de creneaux),
-                  ics.ts, supabase.ts, utils.ts
-  pages/          Landing, Booking, Confirmation, Legal, Admin,
-                  Tagesplan, NotFound
+                  pricing.ts (remises, delai d'annulation), ics.ts,
+                  supabase.ts, utils.ts, *.test.ts
+  pages/          Landing, Booking, Confirmation, ManageBooking, Legal,
+                  Admin, Tagesplan, NotFound
 supabase/
-  migrations/     schema puis policies RLS
-  functions/      create-booking, send-booking-confirmation,
-                  send-telegram-notification
+  migrations/     schema, policies RLS, puis reservation v2
+  functions/      create-booking, cancel-booking, send-booking-update,
+                  process-reminders, send-booking-confirmation,
+                  send-telegram-notification, _shared/email.ts
   seed.sql        donnees de demarrage
+  cron.sql        planification des rappels (a executer a la main)
 public/           manifest, icones, robots.txt, sitemap.xml, sw.js
   media/          video du hero, affiche et photos de la galerie
 ```
@@ -116,7 +125,8 @@ public/           manifest, icones, robots.txt, sitemap.xml, sw.js
 | --- | --- |
 | `/` | landing one-page, hero video |
 | `/termin` | tunnel de reservation en 5 etapes, plusieurs prestations possibles |
-| `/termin/bestaetigt` | confirmation avec export `.ics` et Google Agenda |
+| `/termin/bestaetigt` | confirmation avec export `.ics`, Google Agenda et lien de gestion |
+| `/termin/verwalten/:token` | le client voit son rendez-vous et l'annule lui-meme dans le delai, sans compte |
 | `/impressum` `/datenschutz` | mentions legales, obligatoires en Autriche |
 | `/admin` | dashboard, e-mail + mot de passe |
 | `/tagesplan` | plan du jour plein ecran pour la tablette du salon |
@@ -127,12 +137,43 @@ public/           manifest, icones, robots.txt, sitemap.xml, sw.js
 
 ### Tables
 
-`services` · `barbers` · `opening_hours` · `settings` · `blocked_slots` ·
-`bookings` · `booking_services` · `admin_users`
+`services` · `barbers` · `barber_hours` · `barber_absences` · `opening_hours` ·
+`settings` · `blocked_slots` · `promo_codes` · `bookings` · `booking_services` ·
+`admin_users`
 
 Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
-`booking_services`, et `bookings` porte les totaux (`duration_min`, `price`)
-recalcules cote serveur.
+`booking_services`, et `bookings` porte les totaux (`duration_min`, `price`,
+`discount`) recalcules cote serveur.
+
+### Ce que couvre la prise de rendez-vous (calquee sur sitdown-studio)
+
+| Cote client | Cote salon |
+| --- | --- |
+| une ou plusieurs prestations, barbier libre ou "egal wer" | Tagesplan, semaine, liste, temps reel (Supabase Realtime) |
+| prochain creneau libre affiche par barbier | creer un rendez-vous a la main (telephone, walk-in), sans delai minimum |
+| brouillon restaure si le client quitte la page | deplacer un rendez-vous, le client recoit un e-mail |
+| code promo valide cote serveur | annuler avec e-mail au client et Telegram au salon |
+| lien de gestion secret : voir, ajouter au calendrier, annuler | horaires propres a chaque barbier et absences (conges) |
+| annulation en ligne jusqu'a X heures avant, puis appel | statistiques : chiffre d'affaires, no-show, top prestations |
+| rappels e-mail 24 h et 2 h avant | codes promo, reglages des rappels et du delai d'annulation |
+
+**Pas de compte client**, contrairement a sitdown. Le lien de gestion
+(`bookings.manage_token`, 48 caracteres hexadecimaux) joue ce role : il
+n'ouvre que ce rendez-vous, et la fonction `booking_by_token()` ne renvoie
+ni identifiant interne ni donnee d'un autre client.
+
+### Le moteur de creneaux
+
+`src/lib/slots.ts`, teste dans `slots.test.ts`. La plage de travail d'un
+barbier est l'intersection des horaires du salon et de ses propres horaires
+(`barber_hours`), vide s'il est absent (`barber_absences`). Un rendez-vous
+bloque tout son intervalle plus le buffer. Pour "egal wer", un creneau est
+libre des qu'un barbier actif est libre, et l'Edge Function affecte alors le
+premier disponible.
+
+La meme logique existe trois fois, volontairement : dans le navigateur
+(affichage), dans le mode demo (`db.ts`) et dans `create-booking`
+(decision). Le navigateur n'a jamais le dernier mot.
 
 ### Deux garde-fous a ne jamais retirer
 
@@ -164,6 +205,13 @@ volontaires et commentees dans le fichier :
 
 - `settings` n'a pas de policy `DELETE` : c'est un singleton `id = 1`
 - `bookings` n'a pas de policy `INSERT` pour `anon` : tout passe par l'Edge Function
+
+Trois tables ne sont jamais lues directement par le public, mais via une
+fonction `SECURITY DEFINER` qui filtre :
+
+- `barber_absences` : `list_absences()` cache le motif aux non-admins
+- `promo_codes` : `quote_promo()` ne rend qu'un verdict, jamais la liste
+- `bookings` : `booking_by_token()` pour le lien de gestion, `public_busy_slots()` pour les creneaux
 
 ---
 
@@ -202,12 +250,33 @@ et se gerent depuis le meme onglet.
 
 ```bash
 supabase functions deploy create-booking
+supabase functions deploy cancel-booking
+supabase functions deploy send-booking-update
+supabase functions deploy process-reminders
 supabase functions deploy send-booking-confirmation
 supabase functions deploy send-telegram-notification
 ```
 
-`supabase/config.toml` fixe deja `verify_jwt = false` sur `create-booking`
-(appelee par le navigateur) et `true` sur les deux autres (internes).
+`supabase/config.toml` fixe `verify_jwt = false` sur `create-booking` et
+`cancel-booking` (appelees par le navigateur, validation interne), `true` sur
+les autres.
+
+| Fonction | Declencheur | Effet |
+| --- | --- | --- |
+| `create-booking` | formulaire public | valide, remise, insere, Telegram + e-mail de confirmation |
+| `cancel-booking` | lien de gestion du client | verifie le delai, annule, e-mail + Telegram |
+| `send-booking-update` | dashboard (deplacer, annuler) | e-mail au client, Telegram au salon |
+| `process-reminders` | pg_cron toutes les 30 min | rappels 24 h et 2 h, une seule fois chacun |
+
+### Activer les rappels e-mail
+
+1. Dashboard > Database > Extensions : activer `pg_cron` et `pg_net`
+2. Ouvrir `supabase/cron.sql`, remplacer `<PROJECT_REF>` et
+   `<SERVICE_ROLE_KEY>`, executer dans le SQL Editor
+3. Les rappels se coupent depuis l'admin, onglet Offnungszeiten, sans toucher
+   au cron
+
+Le fichier n'est pas une migration parce qu'il contient la cle service role.
 
 ### Creer le bot Telegram
 
@@ -393,7 +462,10 @@ Les valeurs ci-dessous sont des hypotheses de travail, editables dans l'admin
 et dans `supabase/seed.sql`.
 
 - horaires : Lu-Ve 09:00-19:00, Sa 09:00-18:00, Di ferme
-- prestations : 9 services, durees et prix estimes
+- prestations : les 14 de la liste affichee en vitrine, prix reels. Les
+  durees ne sont pas sur la liste : ce sont des estimations a valider
+- delai d'annulation en ligne : 24 h par defaut
+- codes promo de demonstration `WILLKOMMEN10` et `DEL5` : a remplacer ou desactiver
 - barbiers : 3 (Ali, Mehmet, Serkan), photos de placeholder
 - Impressum : les lignes `[ZU ERGANZEN]` dans `src/data/legal.ts` doivent etre
   remplies (forme juridique, Firmenbuchnummer, UID, gerant) avant toute mise en

@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /tagesplan
+Disallow: /termin/verwalten/
 
 Sitemap: https://delherren.app/sitemap.xml

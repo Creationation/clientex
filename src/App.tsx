@@ -5,6 +5,7 @@ import { AdminAuthProvider } from "@/hooks/useAdminAuth";
 import Landing from "@/pages/Landing";
 import Booking from "@/pages/Booking";
 import Confirmation from "@/pages/Confirmation";
+import ManageBooking from "@/pages/ManageBooking";
 import Legal from "@/pages/Legal";
 import Admin from "@/pages/Admin";
 import Tagesplan from "@/pages/Tagesplan";
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/termin" element={<Booking />} />
             <Route path="/termin/bestaetigt" element={<Confirmation />} />
+            <Route path="/termin/verwalten/:token" element={<ManageBooking />} />
             <Route path="/impressum" element={<Legal kind="impressum" />} />
             <Route path="/datenschutz" element={<Legal kind="datenschutz" />} />
             <Route path="/admin" element={<Admin />} />

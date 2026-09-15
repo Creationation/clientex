@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Ban, CalendarDays, Clock, KeyRound, LayoutGrid, List, LogOut, Maximize2, Scissors, Users, X,
+  Ban, BarChart3, CalendarDays, Clock, KeyRound, LayoutGrid, List, LogOut, Maximize2, Plus,
+  Scissors, Tag, Users,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -14,19 +15,26 @@ import { Wordmark } from "@/components/Header";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { BookingsList, DayView, WeekView } from "@/components/admin/CalendarViews";
 import { AdminsTab, BarbersTab, BlocksTab, HoursTab, ServicesTab } from "@/components/admin/EditorTabs";
-import { bookingServiceLabel, Panel, StatusBadge } from "@/components/admin/shared";
+import { BookingSheet } from "@/components/admin/BookingSheet";
+import { NewBookingSheet } from "@/components/admin/NewBookingSheet";
+import { PromoCodesTab } from "@/components/admin/PromoCodesTab";
+import { StatsTab } from "@/components/admin/StatsTab";
+import { Panel } from "@/components/admin/shared";
 
 type TabId =
-  | "today" | "week" | "bookings" | "services" | "barbers" | "hours" | "blocks" | "admins";
+  | "today" | "week" | "bookings" | "stats" | "services" | "barbers" | "hours" | "blocks"
+  | "promos" | "admins";
 
 const TABS: { id: TabId; Icon: typeof CalendarDays }[] = [
   { id: "today", Icon: LayoutGrid },
   { id: "week", Icon: CalendarDays },
   { id: "bookings", Icon: List },
+  { id: "stats", Icon: BarChart3 },
   { id: "services", Icon: Scissors },
   { id: "barbers", Icon: Users },
   { id: "hours", Icon: Clock },
   { id: "blocks", Icon: Ban },
+  { id: "promos", Icon: Tag },
   { id: "admins", Icon: KeyRound },
 ];
 
@@ -140,9 +148,9 @@ function SignIn() {
 /* ------------------------------- Dashboard ------------------------------- */
 
 function Dashboard() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const { email, name, demo, signOut } = useAdminAuth();
-  const { services, barbers, openingHours, settings, reload } = useSalonData(true);
+  const { services, barbers, openingHours, barberHours, settings, reload } = useSalonData(true);
 
   const [tab, setTab] = useState<TabId>("today");
   const [day, setDay] = useState(new Date());
@@ -151,11 +159,13 @@ function Dashboard() {
   const [blocked, setBlocked] = useState<BlockedSlot[]>([]);
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [selected, setSelected] = useState<Booking | null>(null);
+  const [creating, setCreating] = useState(false);
   const [version, setVersion] = useState(0);
 
   const range = useMemo(() => {
     if (tab === "today") return [toDateKey(day), toDateKey(day)] as const;
     if (tab === "week") return [toDateKey(weekStart), toDateKey(addDays(weekStart, 6))] as const;
+    if (tab === "stats") return [toDateKey(addDays(new Date(), -365)), toDateKey(addDays(new Date(), 120))] as const;
     return [toDateKey(addDays(new Date(), -60)), toDateKey(addDays(new Date(), 120))] as const;
   }, [tab, day, weekStart]);
 
@@ -180,9 +190,22 @@ function Dashboard() {
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
+  // Temps reel : une reservation prise sur le site apparait sans recharger.
+  useEffect(() => db.subscribeBookings(refresh), [refresh]);
+
+  // La fiche ouverte suit les donnees rechargees (deplacement, statut).
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = bookings.find((b) => b.id === selected.id);
+    if (fresh && fresh !== selected) setSelected(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings]);
+
+  const activeBarbers = useMemo(() => barbers.filter((b) => b.active), [barbers]);
+
   const ctx = {
     services,
-    barbers: barbers.filter((b) => b.active),
+    barbers: activeBarbers,
     openingHours,
     bookings,
     blocked,
@@ -192,6 +215,12 @@ function Dashboard() {
   const todayCount = bookings.filter(
     (b) => b.booking_date === toDateKey(new Date()) && b.status !== "cancelled",
   ).length;
+
+  const newBookingButton = (
+    <button onClick={() => setCreating(true)} className="btn-solid !px-4 !py-2 !text-[11px]">
+      <Plus size={13} /> {t.admin.newBooking}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-paper-soft">
@@ -253,12 +282,15 @@ function Dashboard() {
           <Panel
             title={t.admin.tabs.today}
             action={
-              <Link
-                to="/tagesplan"
-                className="flex items-center gap-2 rounded-full border border-carbon/15 px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-carbon"
-              >
-                <Maximize2 size={13} /> {t.admin.fullscreen}
-              </Link>
+              <div className="flex items-center gap-2">
+                {newBookingButton}
+                <Link
+                  to="/tagesplan"
+                  className="flex items-center gap-2 rounded-full border border-carbon/15 px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-carbon"
+                >
+                  <Maximize2 size={13} /> {t.admin.fullscreen}
+                </Link>
+              </div>
             }
           >
             <DayView {...ctx} date={day} setDate={setDay} />
@@ -266,17 +298,18 @@ function Dashboard() {
         ) : null}
 
         {tab === "week" ? (
-          <Panel title={t.admin.tabs.week}>
+          <Panel title={t.admin.tabs.week} action={newBookingButton}>
             <WeekView {...ctx} weekStart={weekStart} setWeekStart={setWeekStart} />
           </Panel>
         ) : null}
 
         {tab === "bookings" ? (
-          <Panel title={t.admin.tabs.bookings}>
+          <Panel title={t.admin.tabs.bookings} action={newBookingButton}>
             <BookingsList
               {...ctx}
               onStatus={async (id, status) => {
-                await db.updateBooking(id, { status });
+                if (status === "cancelled") await db.cancelBooking(id);
+                else await db.updateBooking(id, { status });
                 refresh();
               }}
               onDelete={async (id) => {
@@ -284,6 +317,12 @@ function Dashboard() {
                 refresh();
               }}
             />
+          </Panel>
+        ) : null}
+
+        {tab === "stats" ? (
+          <Panel title={t.admin.tabs.stats}>
+            <StatsTab bookings={bookings} services={services} barbers={barbers} />
           </Panel>
         ) : null}
 
@@ -295,7 +334,12 @@ function Dashboard() {
 
         {tab === "barbers" ? (
           <Panel title={t.admin.tabs.barbers}>
-            <BarbersTab barbers={barbers} reload={reload} />
+            <BarbersTab
+              barbers={barbers}
+              openingHours={openingHours}
+              barberHours={barberHours}
+              reload={reload}
+            />
           </Panel>
         ) : null}
 
@@ -311,6 +355,12 @@ function Dashboard() {
           </Panel>
         ) : null}
 
+        {tab === "promos" ? (
+          <Panel title={t.admin.tabs.promos}>
+            <PromoCodesTab />
+          </Panel>
+        ) : null}
+
         {tab === "admins" ? (
           <Panel title={t.admin.tabs.admins}>
             <AdminsTab admins={admins} demo={demo} reload={refresh} />
@@ -318,89 +368,31 @@ function Dashboard() {
         ) : null}
       </main>
 
-      {/* Detail d'un rendez-vous */}
       {selected ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-carbon/40 p-4 backdrop-blur-sm md:items-center"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl border border-carbon/10 bg-white p-6 shadow-lift"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="eyebrow">{t.admin.client}</p>
-                <h3 className="mt-1.5 font-display text-[24px] font-semibold text-carbon">
-                  {selected.client_name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelected(null)}
-                className="grid h-10 w-10 place-items-center rounded-full border border-carbon/12 text-stone transition-colors hover:text-carbon"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <dl className="mt-5 space-y-3">
-              <DetailRow
-                label={t.booking.date}
-                value={new Date(selected.booking_date).toLocaleDateString(lang, {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "long",
-                })}
-              />
-              <DetailRow
-                label={t.booking.time}
-                value={`${selected.start_time} - ${selected.end_time}`}
-              />
-              <DetailRow
-                label={t.booking.service}
-                value={bookingServiceLabel(selected, services, lang)}
-              />
-              <DetailRow
-                label={t.booking.barber}
-                value={barbers.find((b) => b.id === selected.barber_id)?.name ?? t.team.anyBarber}
-              />
-              <DetailRow label={t.booking.total} value={`${selected.price} EUR`} />
-              <DetailRow label={t.booking.phone} value={selected.client_phone} />
-              <DetailRow label={t.booking.email} value={selected.client_email} />
-              {selected.notes ? <DetailRow label={t.booking.notes} value={selected.notes} /> : null}
-            </dl>
-
-            <div className="mt-6 flex items-center justify-between gap-3 border-t border-carbon/10 pt-5">
-              <StatusBadge status={selected.status} label={t.admin.statuses[selected.status]} />
-              <select
-                value={selected.status}
-                onChange={async (e) => {
-                  const status = e.target.value as Booking["status"];
-                  await db.updateBooking(selected.id, { status });
-                  setSelected({ ...selected, status });
-                  refresh();
-                }}
-                className="rounded-full border border-carbon/15 bg-white px-4 py-2 font-body text-[12px] font-medium text-carbon outline-none focus:border-carbon/45"
-              >
-                {(Object.keys(t.admin.statuses) as Booking["status"][]).map((s) => (
-                  <option key={s} value={s}>
-                    {t.admin.statuses[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
+        <BookingSheet
+          booking={selected}
+          services={services}
+          barbers={activeBarbers}
+          onClose={() => setSelected(null)}
+          onChanged={(updated) => {
+            if (updated) setSelected(updated);
+            refresh();
+          }}
+        />
       ) : null}
-    </div>
-  );
-}
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-6">
-      <dt className="font-body text-[12px] text-stone">{label}</dt>
-      <dd className="text-right font-body text-[14px] font-medium text-carbon">{value}</dd>
+      {creating ? (
+        <NewBookingSheet
+          services={services.filter((s) => s.active)}
+          barbers={activeBarbers}
+          openingHours={openingHours}
+          barberHours={barberHours}
+          settings={settings}
+          initialDate={tab === "today" ? toDateKey(day) : undefined}
+          onClose={() => setCreating(false)}
+          onCreated={refresh}
+        />
+      ) : null}
     </div>
   );
 }

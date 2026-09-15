@@ -32,6 +32,13 @@ const COPY: Record<Lang, Record<string, string>> = {
     manage: "Termin ansehen",
     footer: "Kannst du doch nicht kommen? Sag uns bitte kurz Bescheid, dann bekommt jemand anderes den Platz.",
     bye: "Bis bald",
+    subjectThanks: "Danke für deinen Besuch bei DEL Herren",
+    titleThanks: "Danke!",
+    introThanks: "schön, dass du da warst. Wenn dir der Schnitt gefällt, freuen wir uns über eine kurze Bewertung auf Google. Das hilft uns mehr, als du denkst.",
+    review: "Bewertung schreiben",
+    rebook: "Nochmal buchen",
+    footerThanks: "Mit \"Nochmal buchen\" sind deine Leistungen und dein Barbier schon ausgewählt. Du wählst nur noch den Tag.",
+    byeThanks: "Bis zum nächsten Mal",
   },
   en: {
     subject24: "Tomorrow: your appointment at DEL Herren",
@@ -47,6 +54,13 @@ const COPY: Record<Lang, Record<string, string>> = {
     manage: "View appointment",
     footer: "Cannot make it after all? Please let us know, so someone else can have the slot.",
     bye: "See you soon",
+    subjectThanks: "Thank you for visiting DEL Herren",
+    titleThanks: "Thank you!",
+    introThanks: "great to have had you here. If you like your cut, a short Google review would mean a lot to us.",
+    review: "Write a review",
+    rebook: "Book again",
+    footerThanks: "With \"Book again\" your services and barber are already selected. You only pick the day.",
+    byeThanks: "See you next time",
   },
 };
 
@@ -66,11 +80,64 @@ Deno.serve(async (req) => {
 
   const { data: settings } = await admin
     .from("settings")
-    .select("email_reminders, reminder_24h, reminder_2h")
+    .select("email_reminders, reminder_24h, reminder_2h, followup_email")
     .eq("id", 1)
     .maybeSingle();
 
-  if (!settings?.email_reminders) return json({ skipped: "email reminders disabled" });
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://delherren.app";
+  const reviewUrl =
+    Deno.env.get("GOOGLE_REVIEW_URL") ??
+    "https://www.google.com/maps/search/?api=1&query=DEL+Herren+Friseur+1220+Wien";
+
+  /* -------------------- e-mail "Danke" apres le rendez-vous -------------------- */
+
+  let thanked = 0;
+  if (settings?.followup_email) {
+    const nowV = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Vienna" }));
+    const from = new Date(nowV.getTime() - 2 * 86_400_000).toISOString().slice(0, 10);
+    const to = nowV.toISOString().slice(0, 10);
+    const { data: past } = await admin
+      .from("bookings")
+      .select("*, booking_services(service_id, position), barbers(name)")
+      .in("status", ["done", "confirmed"])
+      .eq("followup_sent", false)
+      .gte("booking_date", from)
+      .lte("booking_date", to);
+
+    for (const b of past ?? []) {
+      const endAt = new Date(`${b.booking_date}T${String(b.end_time).slice(0, 5)}:00`);
+      const hoursSince = (nowV.getTime() - endAt.getTime()) / 3_600_000;
+      // Deux heures apres la fin, et pas plus de deux jours (sinon le cron a
+      // ete arrete longtemps et un mail tardif serait deplace).
+      if (hoursSince < 2 || hoursSince > 48) continue;
+
+      const lang: Lang = b.language === "en" ? "en" : "de";
+      const c = COPY[lang];
+      const ids = [...(b.booking_services ?? [])]
+        .sort((x, y) => (x.position ?? 0) - (y.position ?? 0))
+        .map((x) => x.service_id);
+      const rebook = `${siteUrl}/termin?services=${ids.join(",")}${b.barber_id ? `&barber=${b.barber_id}` : ""}`;
+
+      const html = renderEmail({
+        lang,
+        title: c.titleThanks,
+        intro: c.introThanks,
+        clientName: b.client_name,
+        rows: [[c.barber, escapeHtml(b.barbers?.name ?? "")], [c.date, prettyDate(b.booking_date, lang)]],
+        cta: { label: c.review, href: reviewUrl },
+        secondary: { label: c.rebook, href: rebook },
+        footer: c.footerThanks,
+        bye: c.byeThanks,
+      });
+      const result = await sendEmail(b.client_email, c.subjectThanks, html);
+      if (result.ok || result.skipped) {
+        await admin.from("bookings").update({ followup_sent: true }).eq("id", b.id);
+        if (result.ok) thanked++;
+      }
+    }
+  }
+
+  if (!settings?.email_reminders) return json({ skipped: "email reminders disabled", thanked });
 
   // Heure de Vienne : les rendez-vous sont stockes en heure locale du salon.
   const nowVienna = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Vienna" }));
@@ -148,5 +215,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, sent, checked: bookings?.length ?? 0, log });
+  return json({ ok: true, sent, thanked, checked: bookings?.length ?? 0, log });
 });

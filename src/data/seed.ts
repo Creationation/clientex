@@ -54,6 +54,8 @@ export const SEED_SETTINGS: Settings = {
   email_reminders: true,
   reminder_24h: true,
   reminder_2h: true,
+  daily_summary: true,
+  followup_email: true,
 };
 
 /** Codes de demonstration, pour montrer la mecanique. A remplacer par le salon. */

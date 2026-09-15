@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Ban, BarChart3, CalendarDays, Clock, KeyRound, LayoutGrid, List, LogOut, Maximize2, Plus,
-  Scissors, Tag, Users,
+  Ban, BarChart3, CalendarDays, Clock, Contact, KeyRound, LayoutGrid, List, LogOut, Maximize2,
+  Plus, Scissors, Tag, Users,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -16,19 +16,22 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { BookingsList, DayView, WeekView } from "@/components/admin/CalendarViews";
 import { AdminsTab, BarbersTab, BlocksTab, HoursTab, ServicesTab } from "@/components/admin/EditorTabs";
 import { BookingSheet } from "@/components/admin/BookingSheet";
+import { ClientsTab } from "@/components/admin/ClientsTab";
+import { buildClientProfiles, phoneKey } from "@/lib/clients";
 import { NewBookingSheet } from "@/components/admin/NewBookingSheet";
 import { PromoCodesTab } from "@/components/admin/PromoCodesTab";
 import { StatsTab } from "@/components/admin/StatsTab";
 import { Panel } from "@/components/admin/shared";
 
 type TabId =
-  | "today" | "week" | "bookings" | "stats" | "services" | "barbers" | "hours" | "blocks"
-  | "promos" | "admins";
+  | "today" | "week" | "bookings" | "clients" | "stats" | "services" | "barbers" | "hours"
+  | "blocks" | "promos" | "admins";
 
 const TABS: { id: TabId; Icon: typeof CalendarDays }[] = [
   { id: "today", Icon: LayoutGrid },
   { id: "week", Icon: CalendarDays },
   { id: "bookings", Icon: List },
+  { id: "clients", Icon: Contact },
   { id: "stats", Icon: BarChart3 },
   { id: "services", Icon: Scissors },
   { id: "barbers", Icon: Users },
@@ -159,13 +162,14 @@ function Dashboard() {
   const [blocked, setBlocked] = useState<BlockedSlot[]>([]);
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [selected, setSelected] = useState<Booking | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<null | { name: string; phone: string; email: string } | true>(null);
+  const [clientNotes, setClientNotes] = useState<Record<string, string>>({});
   const [version, setVersion] = useState(0);
 
   const range = useMemo(() => {
     if (tab === "today") return [toDateKey(day), toDateKey(day)] as const;
     if (tab === "week") return [toDateKey(weekStart), toDateKey(addDays(weekStart, 6))] as const;
-    if (tab === "stats") return [toDateKey(addDays(new Date(), -365)), toDateKey(addDays(new Date(), 120))] as const;
+    if (tab === "stats" || tab === "clients") return [toDateKey(addDays(new Date(), -365)), toDateKey(addDays(new Date(), 120))] as const;
     return [toDateKey(addDays(new Date(), -60)), toDateKey(addDays(new Date(), 120))] as const;
   }, [tab, day, weekStart]);
 
@@ -192,6 +196,27 @@ function Dashboard() {
 
   // Temps reel : une reservation prise sur le site apparait sans recharger.
   useEffect(() => db.subscribeBookings(refresh), [refresh]);
+
+  // A l'ouverture : les rendez-vous passes encore "bestaetigt" passent en
+  // "erledigt", pour que les statistiques et les fiches clients soient justes
+  // sans que personne n'ait a cliquer.
+  useEffect(() => {
+    db.closePastBookings()
+      .then((n) => {
+        if (n > 0) refresh();
+      })
+      .catch(() => undefined);
+    db.listClientNotes().then(setClientNotes).catch(() => undefined);
+  }, [refresh]);
+
+  // Historique du client de la fiche ouverte (visites passees, note).
+  const selectedClient = useMemo(() => {
+    if (!selected) return null;
+    const key = phoneKey(selected.client_phone);
+    if (!key || /^0+$/.test(key)) return null;
+    const profile = buildClientProfiles(bookings, clientNotes, toDateKey(new Date())).find((c) => c.key === key);
+    return profile ? { visits: profile.visits, note: profile.note } : { visits: 0, note: "" };
+  }, [selected, bookings, clientNotes]);
 
   // La fiche ouverte suit les donnees rechargees (deplacement, statut).
   useEffect(() => {
@@ -320,6 +345,18 @@ function Dashboard() {
           </Panel>
         ) : null}
 
+        {tab === "clients" ? (
+          <Panel title={t.admin.tabs.clients}>
+            <ClientsTab
+              bookings={bookings}
+              services={services}
+              barbers={barbers}
+              onOpenBooking={setSelected}
+              onNewBooking={(prefill) => setCreating(prefill)}
+            />
+          </Panel>
+        ) : null}
+
         {tab === "stats" ? (
           <Panel title={t.admin.tabs.stats}>
             <StatsTab bookings={bookings} services={services} barbers={barbers} />
@@ -373,6 +410,7 @@ function Dashboard() {
           booking={selected}
           services={services}
           barbers={activeBarbers}
+          client={selectedClient}
           onClose={() => setSelected(null)}
           onChanged={(updated) => {
             if (updated) setSelected(updated);
@@ -389,7 +427,8 @@ function Dashboard() {
           barberHours={barberHours}
           settings={settings}
           initialDate={tab === "today" ? toDateKey(day) : undefined}
-          onClose={() => setCreating(false)}
+          prefill={creating === true ? undefined : creating}
+          onClose={() => setCreating(null)}
           onCreated={refresh}
         />
       ) : null}

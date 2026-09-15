@@ -192,3 +192,46 @@ describe("cote salon (demo)", () => {
     expect(busy.some((b) => b.start_time === "10:00")).toBe(false);
   });
 });
+
+describe("deuxieme personne et cloture (demo)", () => {
+  it("cree deux rendez-vous enchaines chez le meme barbier, ou aucun", async () => {
+    const b = await db.createBooking({
+      ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
+      second: { client_name: "Sohn", service_ids: ["svc-kids"] }, // 25 min
+    });
+    const rows = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-ali");
+    expect(rows).toHaveLength(2);
+    const son = rows.find((x) => x.client_name === "Sohn")!;
+    expect(son.start_time).toBe(b.end_time);
+    expect(son.end_time).toBe("10:55");
+    expect(son.client_phone).toBe(client.client_phone);
+
+    // Si le second ne tient pas (autre rendez-vous a 10:45), rien n'est ecrit.
+    await db.createBooking({ ...client, barber_id: "brb-mehmet", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:45" });
+    await expect(
+      db.createBooking({
+        ...client, barber_id: "brb-mehmet", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
+        second: { client_name: "Sohn", service_ids: ["svc-kids"] },
+      }),
+    ).rejects.toThrow("SLOT_TAKEN");
+    const mehmet = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-mehmet");
+    expect(mehmet).toHaveLength(1);
+  });
+
+  it("closePastBookings passe les rendez-vous passes en done, pas les futurs", async () => {
+    const yesterday = toDateKey(addDays(new Date(), -1));
+    await db.updateBooking("bkg-demo-0", { booking_date: yesterday, status: "confirmed" });
+    const n = await db.closePastBookings();
+    expect(n).toBeGreaterThanOrEqual(1);
+    const rows = await db.listBookings(yesterday, DATE);
+    expect(rows.find((b) => b.id === "bkg-demo-0")?.status).toBe("done");
+    expect(rows.filter((b) => b.booking_date === DATE).every((b) => b.status !== "done")).toBe(true);
+  });
+
+  it("notes clients : ecrire, relire, effacer", async () => {
+    await db.saveClientNote("436601234567", "Test", "Fade 3 mm");
+    expect((await db.listClientNotes())["436601234567"]).toBe("Fade 3 mm");
+    await db.saveClientNote("436601234567", "Test", "");
+    expect((await db.listClientNotes())["436601234567"]).toBeUndefined();
+  });
+});

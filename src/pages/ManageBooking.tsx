@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarPlus, Check, Download, Loader2, Phone, XCircle } from "lucide-react";
+import { CalendarPlus, Check, Download, Loader2, Phone, RotateCcw, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SALON, SALON_ADDRESS_LINE } from "@/data/salon";
 import { db } from "@/lib/db";
@@ -69,6 +69,11 @@ export default function ManageBooking() {
   const isPast = booking
     ? new Date(`${booking.booking_date}T${booking.end_time}:00`).getTime() < Date.now()
     : false;
+  // "Nochmal buchen" : memes prestations, meme barbier, il ne reste que le jour.
+  const rebookUrl = booking
+    ? `/termin?services=${booking.service_ids.join(",")}${booking.barber_id ? `&barber=${booking.barber_id}` : ""}`
+    : "/termin";
+
   const cancellable =
     booking &&
     booking.status !== "cancelled" &&
@@ -263,11 +268,17 @@ export default function ManageBooking() {
               </>
             ) : null}
 
-            {booking.status === "cancelled" || isPast ? (
-              <Link to="/termin" className="btn-solid mt-8">
-                {t.manage.bookAgain}
-              </Link>
-            ) : null}
+            <div className="mt-8 w-full rounded-3xl border border-brass/25 bg-brass/[0.06] p-6 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="eyebrow">{t.manage.rebook}</p>
+                  <p className="mt-1 font-body text-[13px] text-carbon">{t.manage.rebookHint}</p>
+                </div>
+                <Link to={rebookUrl} className="btn-solid shrink-0 !px-5 !py-3">
+                  <RotateCcw size={13} /> {t.manage.rebook}
+                </Link>
+              </div>
+            </div>
           </>
         )}
 

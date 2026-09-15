@@ -25,6 +25,8 @@ interface Payload {
   notes?: string;
   language?: "de" | "en";
   promo_code?: string;
+  /** Deuxieme personne : rendez-vous enchaine chez le meme barbier. */
+  second?: { client_name: string; service_ids: string[] };
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
@@ -90,6 +92,27 @@ Deno.serve(async (req) => {
   const end = start + totalDuration;
   const endTime = toHHMM(end);
 
+  // Deuxieme personne : ses prestations sont relues en base elles aussi.
+  const secondName = (body.second?.client_name ?? "").trim();
+  const secondIds = Array.from(new Set(body.second?.service_ids ?? [])).filter(Boolean);
+  let secondServices: typeof services = [];
+  if (secondIds.length > 0) {
+    if (secondName.length < 2 || secondName.length > 120) return json({ error: "INVALID_NAME" }, 400);
+    if (secondIds.length > 6) return json({ error: "SERVICE_NOT_FOUND" }, 400);
+    const { data: rows } = await admin
+      .from("services")
+      .select("id, name_de, name_en, duration_min, price, active, sort_order")
+      .in("id", secondIds)
+      .eq("active", true)
+      .order("sort_order");
+    if (!rows || rows.length !== secondIds.length) return json({ error: "SERVICE_NOT_FOUND" }, 400);
+    secondServices = rows;
+  }
+  const secondDuration = secondServices.reduce((sum, s) => sum + s.duration_min, 0);
+  const secondPrice = secondServices.reduce((sum, s) => sum + Number(s.price), 0);
+  // Le bloc entier (les deux rendez-vous) doit tenir dans la plage.
+  const blockEnd = end + secondDuration;
+
   /* ---------------------------- date et horaires --------------------------- */
 
   const date = new Date(`${body.booking_date}T00:00:00`);
@@ -124,7 +147,7 @@ Deno.serve(async (req) => {
   if (!hours?.is_open) return json({ error: "CLOSED" }, 409);
   const shopOpen = toMinutes(hhmm(hours.open_time));
   const shopClose = toMinutes(hhmm(hours.close_time));
-  if (start < shopOpen || end > shopClose) return json({ error: "OUTSIDE_HOURS" }, 409);
+  if (start < shopOpen || blockEnd > shopClose) return json({ error: "OUTSIDE_HOURS" }, 409);
 
   /* -------------------------- code promo (optionnel) ----------------------- */
 
@@ -159,7 +182,7 @@ Deno.serve(async (req) => {
     const own = (barberHours ?? []).find((h) => h.barber_id === barberId);
     if (own) {
       if (!own.active) return "OUTSIDE_HOURS";
-      if (start < toMinutes(hhmm(own.start_time)) || end > toMinutes(hhmm(own.end_time))) {
+      if (start < toMinutes(hhmm(own.start_time)) || blockEnd > toMinutes(hhmm(own.end_time))) {
         return "OUTSIDE_HOURS";
       }
     }
@@ -167,13 +190,13 @@ Deno.serve(async (req) => {
       if (b.barber_id && b.barber_id !== barberId) continue;
       const bs = b.all_day ? 0 : toMinutes(hhmm(b.start_time));
       const be = b.all_day ? 1440 : toMinutes(hhmm(b.end_time));
-      if (start < be && bs < end) return "SLOT_TAKEN";
+      if (start < be && bs < blockEnd) return "SLOT_TAKEN";
     }
     for (const b of busy ?? []) {
       if (b.barber_id !== barberId) continue;
       const bs = toMinutes(hhmm(b.start_time));
       const be = toMinutes(hhmm(b.end_time)) + buffer;
-      if (start < be && bs < end) return "SLOT_TAKEN";
+      if (start < be && bs < blockEnd) return "SLOT_TAKEN";
     }
     return null;
   };
@@ -247,6 +270,45 @@ Deno.serve(async (req) => {
     return json({ error: "INSERT_FAILED" }, 500);
   }
 
+  // Deuxieme rendez-vous, juste apres, meme barbier. S'il echoue, on retire
+  // aussi le premier : le client a demande les deux ensemble.
+  let second: Record<string, unknown> | null = null;
+  if (secondServices.length > 0) {
+    const { data: row, error: secondError } = await admin
+      .from("bookings")
+      .insert({
+        barber_id: barberId,
+        booking_date: body.booking_date,
+        start_time: endTime,
+        end_time: toHHMM(blockEnd),
+        duration_min: secondDuration,
+        price: secondPrice,
+        discount: 0,
+        promo_code: null,
+        source: "online",
+        status: settings?.auto_confirm === false ? "pending" : "confirmed",
+        client_name: secondName,
+        client_email: email,
+        client_phone: phone,
+        notes: language === "en" ? `Booked together with ${name}` : `Gemeinsam gebucht mit ${name}`,
+        language,
+      })
+      .select()
+      .single();
+    const linesErr = row
+      ? (await admin.from("booking_services").insert(
+          secondServices.map((s, i) => ({ booking_id: row.id, service_id: s.id, position: i })),
+        )).error
+      : null;
+    if (secondError || !row || linesErr) {
+      if (row) await admin.from("bookings").delete().eq("id", row.id);
+      await admin.from("bookings").delete().eq("id", booking.id);
+      const code = (secondError as { code?: string } | null)?.code;
+      return json({ error: code === "23P01" ? "SLOT_TAKEN" : "INSERT_FAILED" }, code === "23P01" ? 409 : 500);
+    }
+    second = row;
+  }
+
   // Le code est consomme apres l'insert reussi, jamais avant.
   if (promoCode) {
     const { data: promo } = await admin
@@ -262,6 +324,9 @@ Deno.serve(async (req) => {
   const serviceLabel = services
     .map((s) => (language === "en" ? s.name_en || s.name_de : s.name_de))
     .join(" + ");
+  const secondLabel = secondServices
+    .map((s) => (language === "en" ? s.name_en || s.name_de : s.name_de))
+    .join(" + ");
 
   /* ---------------------------- notifications ---------------------------- */
 
@@ -269,6 +334,7 @@ Deno.serve(async (req) => {
     serviceLabel,
     barberName,
     booking,
+    second: second ? { ...second, serviceLabel: secondLabel } : null,
     cancelDeadlineHours: settings?.cancel_deadline_hours ?? 24,
   };
 

@@ -52,6 +52,24 @@ Deno.serve(async (req) => {
   let text: string;
 
   const time = (v: unknown) => String(v ?? "").slice(0, 5);
+
+  // Texte deja compose par l'appelant (resume du matin).
+  if (type === "raw" && typeof data?.text === "string") {
+    text = data.text;
+    const results = await Promise.allSettled(
+      chatIds.map((chatId) =>
+        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true }),
+        }).then((r) => {
+          if (!r.ok) throw new Error(`telegram ${r.status}`);
+          return true;
+        }),
+      ),
+    );
+    return json({ ok: results.some((r) => r.status === "fulfilled") });
+  }
   const who = data?.by === "client" ? "vom Kunden" : data?.by === "salon" ? "vom Salon" : "";
 
   if (type === "cancellation") {
@@ -83,6 +101,9 @@ Deno.serve(async (req) => {
       `\u{1F488} ${esc(data.serviceLabel)} · ${esc(b.price)} EUR${Number(b.discount) > 0 ? ` (${esc(b.promo_code)} -${esc(b.discount)})` : ''}`,
       `\u{1F9D4} ${esc(data.barberName)}`,
       b.notes ? `\n\u{1F4DD} ${esc(b.notes)}` : "",
+      data.second
+        ? `\n\u{1F465} + ${esc(data.second.client_name)} · ${esc(data.second.serviceLabel)} · ${time(data.second.start_time)} - ${time(data.second.end_time)}`
+        : "",
       "",
       `<i>${SALON.name}</i>`,
     ]

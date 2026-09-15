@@ -139,7 +139,11 @@ public/           manifest, icones, robots.txt, sitemap.xml, sw.js
 
 `services` · `barbers` · `barber_hours` · `barber_absences` · `opening_hours` ·
 `settings` · `blocked_slots` · `promo_codes` · `bookings` · `booking_services` ·
-`admin_users`
+`client_notes` · `admin_users`
+
+Pas de table clients : les fiches (onglet Kunden) sont reconstruites depuis
+`bookings`, regroupees par telephone normalise (`src/lib/clients.ts`). Seule la
+note libre du salon est stockee, dans `client_notes`.
 
 Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
 `booking_services`, et `bookings` porte les totaux (`duration_min`, `price`,
@@ -156,6 +160,10 @@ Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
 | lien de gestion secret : voir, ajouter au calendrier, annuler | horaires propres a chaque barbier et absences (conges) |
 | annulation en ligne jusqu'a X heures avant, puis appel | statistiques : chiffre d'affaires, no-show, top prestations |
 | rappels e-mail 24 h et 2 h avant | codes promo, reglages des rappels et du delai d'annulation |
+| reserver pour deux personnes (pere et fils), deux rendez-vous enchaines | Tagesplan en liste sur telephone, appel en un tap |
+| "Nochmal buchen" : memes prestations, meme barbier, il ne reste que le jour | fiches clients : visites, derniere fois, prochain rendez-vous, note libre |
+| e-mail "Danke" apres le rendez-vous, avec lien vers l'avis Google | resume du jour sur Telegram le matin |
+| | recherche par nom / telephone, cloture automatique des rendez-vous passes |
 
 **Pas de compte client**, contrairement a sitdown. Le lien de gestion
 (`bookings.manage_token`, 48 caracteres hexadecimaux) joue ce role : il
@@ -253,6 +261,7 @@ supabase functions deploy create-booking
 supabase functions deploy cancel-booking
 supabase functions deploy send-booking-update
 supabase functions deploy process-reminders
+supabase functions deploy send-daily-summary
 supabase functions deploy send-booking-confirmation
 supabase functions deploy send-telegram-notification
 ```
@@ -266,7 +275,9 @@ les autres.
 | `create-booking` | formulaire public | valide, remise, insere, Telegram + e-mail de confirmation |
 | `cancel-booking` | lien de gestion du client | verifie le delai, annule, e-mail + Telegram |
 | `send-booking-update` | dashboard (deplacer, annuler) | e-mail au client, Telegram au salon |
-| `process-reminders` | pg_cron toutes les 30 min | rappels 24 h et 2 h, une seule fois chacun |
+| `process-reminders` | pg_cron toutes les 30 min | rappels 24 h et 2 h, puis e-mail "Danke" 2 h apres le rendez-vous, une seule fois chacun |
+| `send-daily-summary` | pg_cron a 07:30 (Vienne), lundi a samedi | resume du jour sur Telegram |
+| `close_past_bookings()` (SQL) | pg_cron a 22:00 et a chaque ouverture du dashboard | rendez-vous confirmes et passes -> erledigt |
 
 ### Activer les rappels e-mail
 
@@ -465,6 +476,9 @@ et dans `supabase/seed.sql`.
 - prestations : les 14 de la liste affichee en vitrine, prix reels. Les
   durees ne sont pas sur la liste : ce sont des estimations a valider
 - delai d'annulation en ligne : 24 h par defaut
+- lien "Bewertung schreiben" des e-mails de remerciement : `VITE_GOOGLE_REVIEW_URL`
+  cote site et secret `GOOGLE_REVIEW_URL` cote fonctions, a remplacer par le lien
+  court de la fiche Google Business (sinon, recherche Google Maps du salon)
 - codes promo de demonstration `WILLKOMMEN10` et `DEL5` : a remplacer ou desactiver
 - barbiers : 3 (Ali, Mehmet, Serkan), photos de placeholder
 - Impressum : les lignes `[ZU ERGANZEN]` dans `src/data/legal.ts` doivent etre

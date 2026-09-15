@@ -4,7 +4,7 @@ import { CalendarPlus, Check, Copy, Download, ExternalLink, Phone } from "lucide
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SALON, SALON_ADDRESS_LINE } from "@/data/salon";
 import { buildIcs, downloadIcs, googleCalendarUrl } from "@/lib/ics";
-import { formatPrice, fromDateKey } from "@/lib/utils";
+import { formatPrice, fromDateKey, toHHMM, toMinutes } from "@/lib/utils";
 import type { Booking } from "@/data/types";
 import { Wordmark } from "@/components/Header";
 
@@ -12,6 +12,8 @@ interface ConfirmationState {
   booking: Booking;
   serviceLabel: string;
   barberLabel: string;
+  /** Deuxieme personne, si le client a reserve pour deux. */
+  second: { name: string; serviceLabel: string; duration: number; price: number } | null;
 }
 
 export const manageUrl = (token: string) => `/termin/verwalten/${token}`;
@@ -24,14 +26,15 @@ export default function Confirmation() {
 
   if (!state?.booking) return <Navigate to="/termin" replace />;
 
-  const { booking, serviceLabel, barberLabel } = state;
+  const { booking, serviceLabel, barberLabel, second } = state;
+  const secondEnd = second ? toHHMM(toMinutes(booking.end_time) + second.duration) : "";
 
   const icsInput = {
     title: `${SALON.shortName} · ${serviceLabel}`,
     description: `${serviceLabel} · ${barberLabel}\n${SALON_ADDRESS_LINE}\n${SALON.phone}`,
     date: booking.booking_date,
     startTime: booking.start_time,
-    endTime: booking.end_time,
+    endTime: second ? secondEnd : booking.end_time,
     uid: booking.id,
   };
 
@@ -101,6 +104,22 @@ export default function Confirmation() {
             <Row label={t.contact.address} value={SALON_ADDRESS_LINE} />
             <Row label={t.confirmation.reference} value={booking.id.slice(-8).toUpperCase()} />
           </dl>
+
+          {second ? (
+            <div className="mt-5 rounded-2xl bg-paper-soft p-4">
+              <p className="eyebrow">{t.confirmation.secondBooking} · {second.name}</p>
+              <div className="mt-2 flex items-baseline justify-between gap-4">
+                <span className="font-display text-[17px] font-medium text-carbon">{second.serviceLabel}</span>
+                <span className="shrink-0 font-display text-[18px] font-semibold text-carbon">
+                  {formatPrice(second.price)}
+                  <span className="ml-1 font-body text-[12px] font-medium text-stone">EUR</span>
+                </span>
+              </div>
+              <p className="mt-1 font-body text-[13px] text-stone">
+                {booking.end_time} - {secondEnd} · {barberLabel} · {t.confirmation.secondFollows}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-7 w-full">

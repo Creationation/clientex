@@ -12,8 +12,8 @@ export const SALON = {
   country: "AT",
   countryName: "Osterreich",
   phone: "+43 660 87511680",
-  phoneHref: "tel:+436608751168",
-  whatsapp: "https://wa.me/436608751168",
+  phoneHref: "tel:+4366087511680",
+  whatsapp: "https://wa.me/4366087511680",
   email: "termin@delherren.app",
   instagram: "",
   rating: 4.9,
@@ -25,7 +25,11 @@ export const SALON = {
   mapsLink:
     "https://www.google.com/maps/search/?api=1&query=Erzherzog-Karl-Stra%C3%9Fe+60,+1220+Wien",
   siteUrl: (import.meta.env.VITE_SITE_URL as string) || "https://delherren.app",
-  priceRange: "EUR 8 - 38",
+  priceRange: "EUR 7 - 33",
+  /** Lien "Bewertung schreiben". A remplacer par le lien court de la fiche Google Business. */
+  reviewUrl:
+    (import.meta.env.VITE_GOOGLE_REVIEW_URL as string) ||
+    "https://www.google.com/maps/search/?api=1&query=DEL+Herren+Friseur+Erzherzog-Karl-Stra%C3%9Fe+60+1220+Wien",
 } as const;
 
 export const SALON_ADDRESS_LINE = `${SALON.street}, ${SALON.postalCode} ${SALON.city}`;

@@ -415,6 +415,20 @@ export function HoursTab({
             labelOff={t.admin.reminder2}
           />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Toggle
+            on={cfg.followup_email}
+            onClick={() => setCfg({ ...cfg, followup_email: !cfg.followup_email })}
+            labelOn={t.admin.followupEmail}
+            labelOff={t.admin.followupEmail}
+          />
+          <Toggle
+            on={cfg.daily_summary}
+            onClick={() => setCfg({ ...cfg, daily_summary: !cfg.daily_summary })}
+            labelOn={t.admin.dailySummary}
+            labelOff={t.admin.dailySummary}
+          />
+        </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-carbon/10 pt-5">
           <Toggle

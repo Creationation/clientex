@@ -1,5 +1,7 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Phone, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { matchesQuery } from "@/lib/clients";
 import type { Barber, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
 import { addDays, cn, toDateKey, toMinutes } from "@/lib/utils";
 import { bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
@@ -47,6 +49,12 @@ export function DayView({
 
   const dayBlocks = ctx.blocked.filter((b) => b.date === key);
 
+  // Sur telephone, une liste chronologique vaut mieux qu'une grille a
+  // trois colonnes. Le patron peut forcer l'une ou l'autre.
+  const [layout, setLayout] = useState<"auto" | "grid" | "agenda">("auto");
+  const showAgenda = layout === "agenda";
+  const showGrid = layout === "grid";
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -64,20 +72,45 @@ export function DayView({
             <ChevronRight size={16} />
           </NavButton>
         </div>
-        <p
-          className={cn(
-            "font-display font-semibold text-carbon",
-            compact ? "text-[28px]" : "text-[22px]",
-          )}
-        >
-          {date.toLocaleDateString(lang, { weekday: "long", day: "2-digit", month: "long" })}
-        </p>
+        <div className="flex items-center gap-3">
+          <p
+            className={cn(
+              "font-display font-semibold text-carbon",
+              compact ? "text-[28px]" : "text-[22px]",
+            )}
+          >
+            {date.toLocaleDateString(lang, { weekday: "long", day: "2-digit", month: "long" })}
+          </p>
+          <div className="flex rounded-full border border-carbon/12 p-0.5">
+            <button
+              onClick={() => setLayout("agenda")}
+              className={cn("rounded-full p-1.5 transition-colors", showAgenda ? "bg-carbon text-paper" : "text-stone hover:text-carbon")}
+              aria-label={t.admin.agenda}
+              title={t.admin.agenda}
+            >
+              <List size={13} />
+            </button>
+            <button
+              onClick={() => setLayout("grid")}
+              className={cn("rounded-full p-1.5 transition-colors", showGrid ? "bg-carbon text-paper" : "text-stone hover:text-carbon")}
+              aria-label={t.admin.grid}
+              title={t.admin.grid}
+            >
+              <LayoutGrid size={13} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {!hours?.is_open ? (
         <Empty text={t.hours.closed} />
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Liste : par defaut sur mobile, ou a la demande */}
+        <div className={cn(showGrid ? "hidden" : showAgenda ? "block" : "block md:hidden")}>
+          <AgendaList bookings={dayBookings} blocks={dayBlocks} compact={compact} barbers={ctx.barbers} services={ctx.services} onSelect={ctx.onSelect} />
+        </div>
+        <div className={cn("overflow-x-auto", showAgenda ? "hidden" : showGrid ? "block" : "hidden md:block")}>
           <div className="min-w-[680px]">
             <div
               className="grid gap-2 border-b border-carbon/10 pb-3"
@@ -181,8 +214,79 @@ export function DayView({
             ))}
           </div>
         </div>
+        </>
       )}
     </div>
+  );
+}
+
+/** Rendez-vous du jour les uns sous les autres, gros caracteres, appel en un tap. */
+function AgendaList({
+  bookings,
+  blocks,
+  compact,
+  barbers,
+  services,
+  onSelect,
+}: Pick<Ctx, "barbers" | "services" | "onSelect"> & {
+  bookings: Booking[];
+  blocks: BlockedSlot[];
+  compact: boolean;
+}) {
+  const { t, lang } = useLanguage();
+  if (bookings.length === 0 && blocks.length === 0) return <Empty text={t.admin.noBookings} />;
+  return (
+    <ul className="space-y-2">
+      {blocks.map((blk) => (
+        <li
+          key={blk.id}
+          className="rounded-2xl border border-dashed border-carbon/20 bg-carbon/[0.03] px-4 py-3 font-body text-[12px] text-stone"
+        >
+          {blk.all_day ? t.admin.allDay : `${blk.start_time} - ${blk.end_time}`}
+          {" · "}
+          {blk.barber_id ? barbers.find((b) => b.id === blk.barber_id)?.name : t.admin.allBarbers}
+          {blk.reason ? ` · ${blk.reason}` : ""}
+        </li>
+      ))}
+      {bookings.map((bk) => {
+        const phone = /^0+$/.test(bk.client_phone.replace(/\D+/g, "")) ? "" : bk.client_phone;
+        return (
+          <li key={bk.id} className="flex items-stretch gap-2">
+            <button
+              onClick={() => onSelect(bk)}
+              className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl border border-carbon/10 bg-paper-soft px-4 py-3 text-left transition-colors hover:border-carbon/30 hover:bg-white"
+            >
+              <span className="shrink-0 text-center">
+                <span className={cn("block font-display font-semibold tabular-nums text-carbon", compact ? "text-[24px]" : "text-[20px]")}>
+                  {bk.start_time}
+                </span>
+                <span className="block font-body text-[11px] tabular-nums text-stone">{bk.end_time}</span>
+              </span>
+              <span className={cn("h-10 w-1 shrink-0 rounded-full", STATUS_DOT[bk.status])} />
+              <span className="min-w-0 flex-1">
+                <span className={cn("block truncate font-body font-semibold text-carbon", compact ? "text-[18px]" : "text-[15px]")}>
+                  {bk.client_name}
+                </span>
+                <span className={cn("block truncate font-body text-stone", compact ? "text-[14px]" : "text-[12px]")}>
+                  {bookingServiceLabel(bk, services, lang)}
+                  {" · "}
+                  {barbers.find((b) => b.id === bk.barber_id)?.name ?? t.team.anyBarber}
+                </span>
+              </span>
+            </button>
+            {phone ? (
+              <a
+                href={`tel:${phone.replace(/\s+/g, "")}`}
+                className="grid w-12 shrink-0 place-items-center rounded-2xl border border-carbon/10 bg-white text-carbon transition-colors hover:bg-carbon hover:text-paper"
+                aria-label={t.admin.callClient}
+              >
+                <Phone size={16} />
+              </a>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -275,14 +379,26 @@ export function BookingsList({
   onDelete: (id: string) => void;
 }) {
   const { t, lang } = useLanguage();
-  const rows = [...ctx.bookings].sort((a, b) =>
-    (b.booking_date + b.start_time).localeCompare(a.booking_date + a.start_time),
-  );
+  const [query, setQuery] = useState("");
+  const rows = [...ctx.bookings]
+    .filter((b) => matchesQuery({ name: b.client_name, phone: b.client_phone, email: b.client_email }, query))
+    .sort((a, b) => (b.booking_date + b.start_time).localeCompare(a.booking_date + a.start_time));
 
-  if (rows.length === 0) return <Empty text={t.admin.noBookings} />;
+  if (ctx.bookings.length === 0) return <Empty text={t.admin.noBookings} />;
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      <label className="mb-4 flex max-w-md items-center gap-3 rounded-full border border-carbon/15 bg-white px-4 py-2.5">
+        <Search size={14} className="shrink-0 text-stone" />
+        <input
+          className="w-full bg-transparent font-body text-[14px] text-carbon outline-none placeholder:text-stone/60"
+          placeholder={t.admin.search}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </label>
+      {rows.length === 0 ? <Empty text={t.admin.noResults} /> : null}
+    <div className={cn("overflow-x-auto", rows.length === 0 && "hidden")}>
       <table className="w-full min-w-[880px] border-collapse">
         <thead>
           <tr className="border-b border-carbon/10 text-left font-body text-[10px] font-semibold uppercase tracking-widest text-stone">
@@ -349,6 +465,7 @@ export function BookingsList({
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

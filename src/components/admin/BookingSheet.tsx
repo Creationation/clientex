@@ -10,6 +10,8 @@ interface Props {
   booking: Booking;
   services: Service[];
   barbers: Barber[];
+  /** Ce que le salon sait deja de ce client : nombre de visites et note. */
+  client?: { visits: number; note: string } | null;
   onClose: () => void;
   onChanged: (updated?: Booking) => void;
 }
@@ -19,7 +21,7 @@ interface Props {
  * deplacement (barbier, date, heure, duree) et annulation. Cote Supabase, le
  * client recoit un e-mail a chaque deplacement ou annulation.
  */
-export function BookingSheet({ booking, services, barbers, onClose, onChanged }: Props) {
+export function BookingSheet({ booking, services, barbers, client, onClose, onChanged }: Props) {
   const { t, lang } = useLanguage();
   const [mode, setMode] = useState<"view" | "reschedule" | "cancel">("view");
   const [busy, setBusy] = useState(false);
@@ -114,6 +116,12 @@ export function BookingSheet({ booking, services, barbers, onClose, onChanged }:
               {booking.client_name}
             </h3>
             <p className="mt-1 font-body text-[11px] uppercase tracking-widest text-stone">
+              {client
+                ? client.visits === 0
+                  ? t.admin.clients.newClient
+                  : t.admin.clients.visitNo.replace("{n}", String(client.visits + 1))
+                : null}
+              {client ? " · " : ""}
               {t.admin.sources[booking.source]} · {t.admin.bookedAt}{" "}
               {new Date(booking.created_at).toLocaleDateString(lang, {
                 day: "2-digit",
@@ -121,6 +129,11 @@ export function BookingSheet({ booking, services, barbers, onClose, onChanged }:
                 year: "numeric",
               })}
             </p>
+            {client?.note ? (
+              <p className="mt-2 rounded-xl border border-brass/25 bg-brass/[0.07] px-3 py-2 font-body text-[13px] text-carbon">
+                {client.note}
+              </p>
+            ) : null}
           </div>
           <button
             onClick={onClose}

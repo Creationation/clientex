@@ -18,6 +18,8 @@ interface Props {
   barberHours: BarberHour[];
   settings: Settings;
   initialDate?: string;
+  /** Depuis la fiche client : nom et telephone deja remplis. */
+  prefill?: { name: string; phone: string; email: string };
   onClose: () => void;
   onCreated: () => void;
 }
@@ -34,6 +36,7 @@ export function NewBookingSheet({
   barberHours,
   settings,
   initialDate,
+  prefill,
   onClose,
   onCreated,
 }: Props) {
@@ -42,9 +45,9 @@ export function NewBookingSheet({
   const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
   const [date, setDate] = useState(initialDate ?? toDateKey(new Date()));
   const [time, setTime] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(prefill?.name ?? "");
+  const [phone, setPhone] = useState(prefill?.phone ?? "");
+  const [email, setEmail] = useState(prefill?.email ?? "");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<BookingStatus>("confirmed");
 

@@ -72,6 +72,12 @@ export interface Db {
   /** Valide un code pour un montant. Rejette avec un code d'erreur PromoRejection. */
   quotePromo(code: string, subtotal: number): Promise<PromoQuote>;
 
+  /** Notes libres du salon par client (cle = telephone normalise). */
+  listClientNotes(): Promise<Record<string, string>>;
+  saveClientNote(key: string, name: string, note: string): Promise<void>;
+  /** Passe en "done" les rendez-vous confirmes dont l'heure est passee. Renvoie le nombre. */
+  closePastBookings(): Promise<number>;
+
   listAdmins(): Promise<AdminAccount[]>;
   createAdmin(input: { email: string; name: string; password: string }): Promise<void>;
   deleteAdmin(id: string): Promise<void>;
@@ -100,6 +106,7 @@ interface DemoStore {
   bookings: Booking[];
   blocked: BlockedSlot[];
   promos: PromoCode[];
+  clientNotes: Record<string, string>;
   admins: DemoAdmin[];
 }
 
@@ -139,13 +146,14 @@ function demoBookings(services: Service[]): Booking[] {
       source: "online",
       client_name: name,
       client_email: `${name.split(" ")[0].toLowerCase()}@example.at`,
-      client_phone: "+43 660 0000000",
+      client_phone: `+43 660 1000${String(i).padStart(3, "0")}`,
       notes: "",
       language: "de",
       manage_token: `demo-token-${i}`,
       cancelled_at: null,
       reminder_sent_24h: false,
       reminder_sent_2h: false,
+      followup_sent: false,
       created_at: new Date().toISOString(),
     } satisfies Booking;
   });
@@ -162,6 +170,7 @@ function freshStore(): DemoStore {
     bookings: demoBookings(SEED_SERVICES),
     blocked: [],
     promos: structuredClone(SEED_PROMO_CODES),
+    clientNotes: { "436601000000": "Fade auf 3 mm, links etwas kürzer." },
     admins: [
       {
         id: "adm-owner",
@@ -282,6 +291,8 @@ function managedView(store: DemoStore, b: Booking): ManagedBooking {
     barber_name: store.barbers.find((x) => x.id === b.barber_id)?.name ?? "",
     service_names_de: picked.map((s) => s.name_de),
     service_names_en: picked.map((s) => s.name_en || s.name_de),
+    service_ids: picked.map((s) => s.id),
+    barber_id: b.barber_id,
     cancel_deadline_hours: store.settings.cancel_deadline_hours,
   };
 }
@@ -424,6 +435,18 @@ const demoDb: Db = {
       barberId = free.id;
     }
 
+    // Deuxieme personne : son rendez-vous commence quand le premier finit,
+    // chez le meme barbier. Verifie avant d'ecrire quoi que ce soit.
+    let secondPicked: Service[] = [];
+    if (input.second && input.second.service_ids.length > 0) {
+      secondPicked = pickServices(store, input.second.service_ids);
+      const d2 = secondPicked.reduce((sum, s) => sum + s.duration_min, 0);
+      const problem2 = demoConflicts(store, barberId, input.booking_date, end, end + d2);
+      if (problem2) throw new Error(problem2);
+    }
+
+    const status = store.settings.auto_confirm ? "confirmed" : "pending";
+    const now = new Date().toISOString();
     const booking: Booking = {
       id: uid("bkg"),
       barber_id: barberId,
@@ -435,7 +458,7 @@ const demoDb: Db = {
       price: subtotal - discount,
       discount,
       promo_code: promoCode,
-      status: store.settings.auto_confirm ? "confirmed" : "pending",
+      status,
       source: "online",
       client_name: input.client_name,
       client_email: input.client_email,
@@ -446,9 +469,29 @@ const demoDb: Db = {
       cancelled_at: null,
       reminder_sent_24h: false,
       reminder_sent_2h: false,
-      created_at: new Date().toISOString(),
+      followup_sent: false,
+      created_at: now,
     };
     store.bookings.push(booking);
+
+    if (secondPicked.length > 0 && input.second) {
+      const d2 = secondPicked.reduce((sum, s) => sum + s.duration_min, 0);
+      store.bookings.push({
+        ...booking,
+        id: uid("bkg"),
+        service_ids: secondPicked.map((s) => s.id),
+        start_time: toHHMM(end),
+        end_time: toHHMM(end + d2),
+        duration_min: d2,
+        price: secondPicked.reduce((sum, s) => sum + s.price, 0),
+        discount: 0,
+        promo_code: null,
+        client_name: input.second.client_name,
+        notes: `${input.language === "en" ? "Booked together with" : "Gemeinsam gebucht mit"} ${input.client_name}`,
+        manage_token: token(),
+      });
+    }
+
     writeStore(store);
     return booking;
   },
@@ -486,6 +529,7 @@ const demoDb: Db = {
       cancelled_at: null,
       reminder_sent_24h: false,
       reminder_sent_2h: false,
+      followup_sent: false,
       created_at: new Date().toISOString(),
     };
     store.bookings.push(booking);
@@ -603,6 +647,35 @@ const demoDb: Db = {
       discount_value: promo.discount_value,
       discount: discountFor(promo, subtotal),
     };
+  },
+
+  async listClientNotes() {
+    return readStore().clientNotes ?? {};
+  },
+  async saveClientNote(key, _name, note) {
+    mutate((store) => {
+      store.clientNotes = { ...(store.clientNotes ?? {}), [key]: note };
+      if (!note.trim()) delete store.clientNotes[key];
+    });
+  },
+  async closePastBookings() {
+    const now = new Date();
+    const today = toDateKey(now);
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    let count = 0;
+    mutate((store) => {
+      store.bookings = store.bookings.map((b) => {
+        const past =
+          b.booking_date < today ||
+          (b.booking_date === today && toMinutes(b.end_time) <= minutes);
+        if (b.status === "confirmed" && past) {
+          count++;
+          return { ...b, status: "done" as const };
+        }
+        return b;
+      });
+    });
+    return count;
   },
 
   async listAdmins() {
@@ -984,6 +1057,29 @@ const supabaseDb: Db = {
       discount_value: Number(row.discount_value),
       discount: Number(row.discount),
     };
+  },
+
+  async listClientNotes() {
+    const { data, error } = await sb().from("client_notes").select("phone_key, note");
+    if (error) throw new Error(error.message);
+    return Object.fromEntries(((data ?? []) as { phone_key: string; note: string }[]).map((r) => [r.phone_key, r.note]));
+  },
+  async saveClientNote(key, name, note) {
+    const client = sb();
+    if (!note.trim()) {
+      const { error } = await client.from("client_notes").delete().eq("phone_key", key);
+      if (error) throw new Error(error.message);
+      return;
+    }
+    const { error } = await client
+      .from("client_notes")
+      .upsert({ phone_key: key, name, note }, { onConflict: "phone_key" });
+    if (error) throw new Error(error.message);
+  },
+  async closePastBookings() {
+    const { data, error } = await sb().rpc("close_past_bookings");
+    if (error) throw new Error(error.message);
+    return Number(data ?? 0);
   },
 
   async listAdmins() {

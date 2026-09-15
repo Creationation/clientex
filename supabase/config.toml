@@ -21,3 +21,5 @@ project_id = "delherren"
     verify_jwt = true
   [functions.process-reminders]
     verify_jwt = true
+  [functions.send-daily-summary]
+    verify_jwt = true

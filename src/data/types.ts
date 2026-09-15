@@ -106,6 +106,8 @@ export interface Booking {
   cancelled_at: string | null;
   reminder_sent_24h: boolean;
   reminder_sent_2h: boolean;
+  /** E-mail "Danke" avec lien avis et rebooking, envoye une fois apres le rendez-vous. */
+  followup_sent: boolean;
   created_at: string;
 }
 
@@ -131,6 +133,10 @@ export interface Settings {
   email_reminders: boolean;
   reminder_24h: boolean;
   reminder_2h: boolean;
+  /** Resume du jour sur Telegram, le matin. */
+  daily_summary: boolean;
+  /** E-mail "Danke" apres le rendez-vous, avec lien avis Google. */
+  followup_email: boolean;
 }
 
 export interface NewBookingInput {
@@ -144,6 +150,12 @@ export interface NewBookingInput {
   notes: string;
   language: Lang;
   promo_code?: string;
+  /**
+   * Deuxieme personne (pere et fils, deux amis) : un second rendez-vous
+   * enchaine juste apres le premier, chez le meme barbier. Cree en meme
+   * temps, ou pas du tout.
+   */
+  second?: { client_name: string; service_ids: string[] };
 }
 
 /**
@@ -197,7 +209,29 @@ export interface ManagedBooking {
   barber_name: string;
   service_names_de: string[];
   service_names_en: string[];
+  /** Pour "Nochmal buchen" : memes prestations, meme barbier. */
+  service_ids: string[];
+  barber_id: string | null;
   cancel_deadline_hours: number;
+}
+
+/**
+ * Fiche client cote salon, reconstruite a partir des reservations et
+ * completee d'une note libre ("Fade 3 mm, links etwas kuerzer").
+ * La cle est le telephone normalise : c'est ce que le salon connait.
+ */
+export interface ClientProfile {
+  key: string;         // telephone normalise, ex. 4366012345678
+  name: string;
+  phone: string;
+  email: string;
+  visits: number;      // rendez-vous passes non annules
+  no_shows: number;
+  last_visit: string | null;   // YYYY-MM-DD
+  next_visit: string | null;
+  last_service_ids: string[];
+  last_barber_id: string | null;
+  note: string;
 }
 
 /** Compte autorise a ouvrir le dashboard. */

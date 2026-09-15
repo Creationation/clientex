@@ -22,6 +22,8 @@ const COPY: Record<Lang, Record<string, string>> = {
     total: "Gesamt",
     manage: "Termin ansehen",
     cancel: "Stornieren",
+    second: "Zweiter Termin",
+    follows: "direkt im Anschluss",
     policy: "Kostenlos online stornierbar bis {hours} Stunden vor dem Termin, über den Link oben. Danach genügt ein kurzer Anruf.",
     bye: "Bis bald",
   },
@@ -38,6 +40,8 @@ const COPY: Record<Lang, Record<string, string>> = {
     total: "Total",
     manage: "View appointment",
     cancel: "Cancel",
+    second: "Second appointment",
+    follows: "right after",
     policy: "Free online cancellation up to {hours} hours before the appointment, via the link above. After that a quick call is enough.",
     bye: "See you soon",
   },
@@ -51,7 +55,7 @@ Deno.serve(async (req) => {
     return json({ error: "UNAUTHORIZED" }, 401);
   }
 
-  const { booking, serviceLabel, barberName, cancelDeadlineHours } = await req.json();
+  const { booking, serviceLabel, barberName, second, cancelDeadlineHours } = await req.json();
   const lang: Lang = booking?.language === "en" ? "en" : "de";
   const c = COPY[lang];
   const deadline = String(cancelDeadlineHours ?? 24);
@@ -67,6 +71,12 @@ Deno.serve(async (req) => {
     rows.push([`${c.discount} · ${escapeHtml(booking.promo_code)}`, `- ${money(booking.discount)}`]);
   }
   rows.push([c.total, `<strong>${money(booking.price)}</strong>`]);
+  if (second) {
+    rows.push([
+      `${c.second} · ${escapeHtml(second.client_name)}`,
+      `${escapeHtml(second.serviceLabel)}<br>${String(second.start_time).slice(0, 5)} - ${String(second.end_time).slice(0, 5)} · ${money(second.price)}`,
+    ]);
+  }
 
   const url = manageUrl(booking.manage_token);
   const html = renderEmail({

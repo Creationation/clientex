@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Plus, RotateCcw, Tag, X,
+  ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Plus, RotateCcw, Tag, UserPlus, X,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSalonData } from "@/hooks/useSalonData";
@@ -28,6 +28,9 @@ interface Draft {
   savedAt: number;
   step: number;
   serviceIds: string[];
+  secondOn?: boolean;
+  secondName?: string;
+  secondIds?: string[];
   barberId: string | null;
   barberTouched: boolean;
   dateKey: string;
@@ -68,20 +71,31 @@ export default function Booking() {
   const [params] = useSearchParams();
   const { services, barbers, openingHours, barberHours, settings, loading } = useSalonData();
 
+  // ?service=id (depuis la liste des prix) ou ?services=id,id (rebooking)
   const presetService = params.get("service");
+  const presetServices = (params.get("services") ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
   const presetBarber = params.get("barber");
+  const isRebook = presetServices.length > 0;
 
   // Le brouillon est lu une seule fois. Un lien direct (?service=, ?barber=)
   // a la priorite sur la selection memorisee, mais on garde les coordonnees.
   const initialDraft = useRef<Draft | null>(readDraft());
   const draft = initialDraft.current;
-  const draftUsed = Boolean(draft) && !presetService && !presetBarber;
+  const draftUsed = Boolean(draft) && !presetService && !presetBarber && !isRebook;
 
-  const [step, setStep] = useState(draftUsed ? Math.min(draft!.step, 3) : 0);
+  // Rebooking : prestations et barbier deja choisis, on saute a la date.
+  const [step, setStep] = useState(isRebook ? (presetBarber ? 2 : 1) : draftUsed ? Math.min(draft!.step, 3) : 0);
   const [serviceIds, setServiceIds] = useState<string[]>(() => {
+    if (isRebook) return presetServices;
     if (presetService) return [presetService];
     return draftUsed ? draft!.serviceIds : [];
   });
+  const [secondOn, setSecondOn] = useState(draftUsed ? Boolean(draft!.secondOn) : false);
+  const [secondName, setSecondName] = useState(draft?.secondName ?? "");
+  const [secondIds, setSecondIds] = useState<string[]>(draftUsed ? (draft!.secondIds ?? []) : []);
   const [barberId, setBarberId] = useState<string | null>(
     presetBarber ?? (draftUsed ? draft!.barberId : null),
   );
@@ -113,16 +127,34 @@ export default function Booking() {
   const selected: Service[] = serviceIds
     .map((id) => services.find((s) => s.id === id))
     .filter((s): s is Service => Boolean(s));
+  const secondSelected: Service[] = secondOn
+    ? secondIds.map((id) => services.find((s) => s.id === id)).filter((s): s is Service => Boolean(s))
+    : [];
 
-  const totalDuration = selected.reduce((sum, s) => sum + s.duration_min, 0);
+  const firstDuration = selected.reduce((sum, s) => sum + s.duration_min, 0);
+  const secondDuration = secondSelected.reduce((sum, s) => sum + s.duration_min, 0);
+  // Les deux rendez-vous s'enchainent chez le meme barbier : le creneau doit
+  // contenir la somme des deux durees.
+  const totalDuration = firstDuration + secondDuration;
   const subtotal = selected.reduce((sum, s) => sum + s.price, 0);
+  const secondPrice = secondSelected.reduce((sum, s) => sum + s.price, 0);
   const discount = promo ? Math.min(promo.discount, subtotal) : 0;
-  const total = subtotal - discount;
+  const total = subtotal - discount + secondPrice;
   const barber = barbers.find((b) => b.id === barberId);
 
   const toggleService = (id: string) => {
     setTime("");
     setServiceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const toggleSecond = (id: string) => {
+    setTime("");
+    setSecondIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const removeSecond = () => {
+    setSecondOn(false);
+    setSecondIds([]);
+    setSecondName("");
+    setTime("");
   };
 
   useEffect(() => {
@@ -136,6 +168,9 @@ export default function Booking() {
       savedAt: Date.now(),
       step,
       serviceIds,
+      secondOn,
+      secondName,
+      secondIds,
       barberId,
       barberTouched,
       dateKey,
@@ -151,7 +186,7 @@ export default function Booking() {
     } catch {
       /* ignore */
     }
-  }, [loading, step, serviceIds, barberId, barberTouched, dateKey, time, name, email, phone, notes, promoInput]);
+  }, [loading, step, serviceIds, secondOn, secondName, secondIds, barberId, barberTouched, dateKey, time, name, email, phone, notes, promoInput]);
 
   const startOver = () => {
     clearDraft();
@@ -159,6 +194,7 @@ export default function Booking() {
     setRestored(false);
     setStep(0);
     setServiceIds([]);
+    removeSecond();
     setBarberId(null);
     setBarberTouched(false);
     setDateKey("");
@@ -330,7 +366,7 @@ export default function Booking() {
   }, [subtotal]);
 
   const canContinue = (() => {
-    if (step === 0) return selected.length > 0;
+    if (step === 0) return selected.length > 0 && (!secondOn || (secondSelected.length > 0 && secondName.trim().length >= 2));
     if (step === 1) return barberTouched;
     if (step === 2) return Boolean(dateKey);
     if (step === 3) return Boolean(time);
@@ -343,6 +379,10 @@ export default function Booking() {
   const submit = async () => {
     if (selected.length === 0 || !dateKey || !time) return;
     setError(null);
+    if (secondOn && (secondSelected.length === 0 || secondName.trim().length < 2)) {
+      setError(t.booking.invalidSecond);
+      return;
+    }
     if (!validDetails) {
       if (name.trim().length < 2) setError(t.booking.invalidName);
       else if (!emailOk(email)) setError(t.booking.invalidEmail);
@@ -362,12 +402,23 @@ export default function Booking() {
         notes: notes.trim(),
         language: lang,
         promo_code: promo?.code,
+        second: secondOn
+          ? { client_name: secondName.trim(), service_ids: secondSelected.map((s) => s.id) }
+          : undefined,
       });
       clearDraft();
       navigate("/termin/bestaetigt", {
         state: {
           booking,
           serviceLabel: selected.map((s) => serviceName(s, lang)).join(" + "),
+          second: secondOn
+            ? {
+                name: secondName.trim(),
+                serviceLabel: secondSelected.map((s) => serviceName(s, lang)).join(" + "),
+                duration: secondDuration,
+                price: secondPrice,
+              }
+            : null,
           barberLabel:
             barbers.find((b) => b.id === booking.barber_id)?.name ??
             barber?.name ??
@@ -448,6 +499,12 @@ export default function Booking() {
             ))}
           </ol>
 
+          {isRebook && step <= 2 ? (
+            <div className="mb-6 rounded-2xl border border-brass/30 bg-brass/[0.07] px-4 py-3">
+              <p className="font-body text-[13px] text-carbon">{t.booking.rebookRestored}</p>
+            </div>
+          ) : null}
+
           {restored ? (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/30 bg-brass/[0.07] px-4 py-3">
               <p className="font-body text-[13px] text-carbon">{t.booking.draftRestored}</p>
@@ -511,6 +568,70 @@ export default function Booking() {
                   );
                 })}
               </div>
+
+              {/* Deuxieme personne : pere et fils, deux amis */}
+              {!secondOn ? (
+                <button
+                  onClick={() => setSecondOn(true)}
+                  className="mt-6 flex w-full items-center gap-4 rounded-2xl border border-dashed border-carbon/25 bg-white/60 p-5 text-left transition-colors hover:border-carbon/50"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-carbon/20 text-carbon/60">
+                    <UserPlus size={15} />
+                  </span>
+                  <span>
+                    <span className="block font-display text-[18px] font-medium text-carbon">
+                      {t.booking.twoPersons}
+                    </span>
+                    <span className="mt-0.5 block font-body text-[12px] text-stone">{t.booking.twoPersonsHint}</span>
+                  </span>
+                </button>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-carbon bg-white p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="font-display text-[18px] font-medium text-carbon">{t.booking.secondPerson}</p>
+                    <button
+                      onClick={removeSecond}
+                      className="flex items-center gap-1.5 font-body text-[11px] font-semibold uppercase tracking-widest text-stone transition-colors hover:text-destructive"
+                    >
+                      <X size={12} /> {t.booking.removeSecond}
+                    </button>
+                  </div>
+                  <label className="mt-4 block">
+                    <span className="eyebrow">{t.booking.secondName}</span>
+                    <input
+                      className="field mt-2"
+                      value={secondName}
+                      placeholder={t.booking.secondNamePlaceholder}
+                      onChange={(e) => setSecondName(e.target.value)}
+                    />
+                  </label>
+                  <p className="eyebrow mt-4">{t.booking.secondServices}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {services.map((s) => {
+                      const active = secondIds.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => toggleSecond(s.id)}
+                          aria-pressed={active}
+                          className={cn(
+                            "flex items-center gap-2 rounded-full border px-3.5 py-2 font-body text-[12px] font-medium transition-colors",
+                            active
+                              ? "border-carbon bg-carbon text-paper"
+                              : "border-carbon/15 bg-white text-carbon hover:border-carbon/40",
+                          )}
+                        >
+                          {active ? <Check size={12} /> : <Plus size={12} />}
+                          {serviceName(s, lang)}
+                          <span className={cn("text-[11px]", active ? "text-paper/70" : "text-stone")}>
+                            {formatPrice(s.price)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </section>
           ) : null}
 
@@ -809,6 +930,39 @@ export default function Booking() {
                 ))
               )}
             </div>
+
+            {secondOn ? (
+              <div className="mt-4 border-t border-carbon/10 pt-4">
+                <p className="font-body text-[11px] font-semibold uppercase tracking-widest text-stone">
+                  {t.booking.secondPerson}
+                  {secondName.trim() ? <span className="ml-1 normal-case tracking-normal text-carbon">· {secondName.trim()}</span> : null}
+                </p>
+                <div className="mt-2 space-y-2">
+                  {secondSelected.length === 0 ? (
+                    <p className="font-body text-[13px] text-stone">{t.booking.noServiceYet}</p>
+                  ) : (
+                    secondSelected.map((s) => (
+                      <div key={s.id} className="flex items-center gap-3 rounded-xl bg-paper-soft px-3 py-2.5">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-body text-[14px] font-medium text-carbon">
+                            {serviceName(s, lang)}
+                          </span>
+                          <span className="font-body text-[11px] text-stone">{s.duration_min} {t.common.min}</span>
+                        </span>
+                        <span className="font-body text-[14px] font-semibold text-carbon">{formatPrice(s.price)}</span>
+                        <button
+                          onClick={() => toggleSecond(s.id)}
+                          className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-stone transition-colors hover:bg-carbon/10 hover:text-carbon"
+                          aria-label={t.common.delete}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <dl className="mt-5 space-y-3 border-t border-carbon/10 pt-5">
               <Row

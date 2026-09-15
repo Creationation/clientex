@@ -12,12 +12,16 @@
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
--- Rejouable : on retire le job s'il existe deja.
+-- Rejouable : on retire les jobs s'ils existent deja.
 do $$
+declare
+  j text;
 begin
-  if exists (select 1 from cron.job where jobname = 'delherren-reminders') then
-    perform cron.unschedule('delherren-reminders');
-  end if;
+  foreach j in array array['delherren-reminders', 'delherren-daily-summary', 'delherren-close-past'] loop
+    if exists (select 1 from cron.job where jobname = j) then
+      perform cron.unschedule(j);
+    end if;
+  end loop;
 end;
 $$;
 
@@ -33,6 +37,29 @@ select cron.schedule(
     body    := '{}'::jsonb
   ) as request_id;
   $$
+);
+
+-- Resume du jour sur Telegram : 07:30 heure de Vienne. pg_cron tourne en UTC,
+-- donc 05:30 UTC en ete (CEST) et 06:30 en hiver (CET). On prend 05:30 :
+-- en hiver le message arrive a 06:30, toujours avant l'ouverture.
+select cron.schedule(
+  'delherren-daily-summary',
+  '30 5 * * 1-6',
+  $$
+  select net.http_post(
+    url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/send-daily-summary',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer <SERVICE_ROLE_KEY>"}'::jsonb,
+    body    := '{}'::jsonb
+  ) as request_id;
+  $$
+);
+
+-- Cloture du soir : les rendez-vous confirmes dont l'heure est passee
+-- deviennent "erledigt". Fonction SQL, pas besoin d'Edge Function.
+select cron.schedule(
+  'delherren-close-past',
+  '0 20 * * *',
+  $$ select public.close_past_bookings(); $$
 );
 
 -- Verifier : select jobid, jobname, schedule, active from cron.job;

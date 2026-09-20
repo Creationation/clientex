@@ -112,6 +112,14 @@ $$;
 
 grant execute on function public.list_absences(date, date) to anon, authenticated;
 
+-- --------------------------------------------------------------- settings --
+
+alter table public.settings
+  add column if not exists cancel_deadline_hours integer not null default 24 check (cancel_deadline_hours >= 0),
+  add column if not exists email_reminders       boolean not null default true,
+  add column if not exists reminder_24h          boolean not null default true,
+  add column if not exists reminder_2h           boolean not null default true;
+
 -- --------------------------------------------------------------- bookings --
 
 alter table public.bookings
@@ -157,14 +165,6 @@ as $$
 $$;
 
 grant execute on function public.booking_by_token(text) to anon, authenticated;
-
--- --------------------------------------------------------------- settings --
-
-alter table public.settings
-  add column if not exists cancel_deadline_hours integer not null default 24 check (cancel_deadline_hours >= 0),
-  add column if not exists email_reminders       boolean not null default true,
-  add column if not exists reminder_24h          boolean not null default true,
-  add column if not exists reminder_2h           boolean not null default true;
 
 -- --------------------------------------------------------------- realtime --
 

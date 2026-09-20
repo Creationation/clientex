@@ -278,9 +278,14 @@ supabase functions deploy send-booking-confirmation
 supabase functions deploy send-telegram-notification
 ```
 
-`supabase/config.toml` fixe `verify_jwt = false` sur `create-booking` et
-`cancel-booking` (appelees par le navigateur, validation interne), `true` sur
-les autres.
+`supabase/config.toml` fixe `verify_jwt = false` partout sauf sur
+`send-booking-update` (appelee par le dashboard avec le JWT de l'admin).
+Les fonctions internes verifient elles-memes le bearer contre
+`SUPABASE_SERVICE_ROLE_KEY`. Attention, piege rencontre le 20 septembre :
+sur un projet recent, cette variable contient la cle **`sb_secret_...`**,
+pas l'ancien JWT service_role. La passerelle refuse une cle `sb_secret` des
+que `verify_jwt = true`, et l'API de gestion ne rend la valeur complete
+qu'avec `?reveal=true`. C'est cette cle qu'il faut dans `cron.sql`.
 
 | Fonction | Declencheur | Effet |
 | --- | --- | --- |

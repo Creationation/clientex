@@ -14,12 +14,15 @@ project_id = "delherren"
     verify_jwt = true
 
   # Fonctions internes : appelees uniquement avec le bearer service role
-  # (par une autre fonction ou par pg_cron).
+  # (par une autre fonction ou par pg_cron). verify_jwt = false parce que la
+  # cle service role injectee par Supabase est aujourd'hui une cle
+  # "sb_secret_...", pas un JWT : la passerelle la refuserait. Chaque fonction
+  # compare elle-meme le bearer a SUPABASE_SERVICE_ROLE_KEY.
   [functions.send-booking-confirmation]
-    verify_jwt = true
+    verify_jwt = false
   [functions.send-telegram-notification]
-    verify_jwt = true
+    verify_jwt = false
   [functions.process-reminders]
-    verify_jwt = true
+    verify_jwt = false
   [functions.send-daily-summary]
-    verify_jwt = true
+    verify_jwt = false

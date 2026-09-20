@@ -3,7 +3,9 @@
 --
 -- Ce fichier n'est PAS une migration : il contient l'URL du projet et la
 -- cle service role, qui ne doivent pas etre versionnees avec de vraies
--- valeurs. A executer une fois dans le SQL Editor du dashboard Supabase,
+-- valeurs. <SERVICE_ROLE_KEY> est la cle "sb_secret_..." (Settings > API
+-- Keys > Secret keys), celle que les fonctions recoivent dans
+-- SUPABASE_SERVICE_ROLE_KEY, pas l'ancien JWT. A executer une fois dans le SQL Editor du dashboard Supabase,
 -- apres avoir remplace les deux placeholders.
 --
 -- Prerequis : Dashboard > Database > Extensions > activer pg_cron et pg_net.

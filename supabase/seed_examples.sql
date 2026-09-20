@@ -75,7 +75,7 @@ with
       end,
       case when r.client in ('Familie Gruber', 'Georg Steiner') then 'admin' else 'online' end,
       r.client || ' (Beispiel)',
-      lower(split_part(r.client, ' ', 1)) || '@example.at',
+      'walkin@delherren.local',  -- adresse de remplissage : aucun e-mail ne part pour les exemples
       r.phone, r.notes, 'de',
       r.day_offset < 0, r.day_offset < 0, r.day_offset < 0
     from rows r

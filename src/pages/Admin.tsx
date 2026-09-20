@@ -331,7 +331,7 @@ function Dashboard() {
             <BookingsList
               {...ctx}
               onStatus={async (id, status) => {
-                if (status === "cancelled") await db.cancelBooking(id);
+                if (status === "cancelled") await db.cancelBooking(id, true);
                 else await db.updateBooking(id, { status });
                 refresh();
               }}

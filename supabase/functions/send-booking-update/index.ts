@@ -15,7 +15,7 @@ import {
 
 interface Payload {
   booking_id: string;
-  kind: "rescheduled" | "cancelled";
+  kind: "rescheduled" | "updated" | "cancelled";
 }
 
 const COPY: Record<Lang, Record<string, string>> = {
@@ -23,6 +23,9 @@ const COPY: Record<Lang, Record<string, string>> = {
     subjectMoved: "Dein Termin wurde verschoben",
     titleMoved: "Neue Uhrzeit für deinen Termin",
     introMoved: "wir mussten deinen Termin verschieben. Hier ist die neue Zeit.",
+    subjectUpdated: "Dein Termin wurde aktualisiert",
+    titleUpdated: "Dein Termin, aktualisiert",
+    introUpdated: "wir haben deinen Termin angepasst. Hier sind die aktuellen Details.",
     subjectCancelled: "Dein Termin wurde storniert",
     titleCancelled: "Termin storniert",
     introCancelled: "leider müssen wir deinen Termin absagen. Das tut uns leid.",
@@ -40,6 +43,9 @@ const COPY: Record<Lang, Record<string, string>> = {
     subjectMoved: "Your appointment has been rescheduled",
     titleMoved: "New time for your appointment",
     introMoved: "we had to move your appointment. Here is the new time.",
+    subjectUpdated: "Your appointment has been updated",
+    titleUpdated: "Your appointment, updated",
+    introUpdated: "we have adjusted your appointment. Here are the current details.",
     subjectCancelled: "Your appointment has been cancelled",
     titleCancelled: "Appointment cancelled",
     introCancelled: "unfortunately we have to cancel your appointment. We are sorry.",
@@ -83,7 +89,7 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "INVALID_JSON" }, 400);
   }
-  if (!body.booking_id || !["rescheduled", "cancelled"].includes(body.kind)) {
+  if (!body.booking_id || !["rescheduled", "updated", "cancelled"].includes(body.kind)) {
     return json({ error: "INVALID_PAYLOAD" }, 400);
   }
 
@@ -110,10 +116,12 @@ Deno.serve(async (req) => {
   const time = `${String(booking.start_time).slice(0, 5)} - ${String(booking.end_time).slice(0, 5)}`;
 
   const moved = body.kind === "rescheduled";
+  const updated = body.kind === "updated";
+  const cancelled = body.kind === "cancelled";
   const html = renderEmail({
     lang,
-    title: moved ? c.titleMoved : c.titleCancelled,
-    intro: moved ? c.introMoved : c.introCancelled,
+    title: moved ? c.titleMoved : updated ? c.titleUpdated : c.titleCancelled,
+    intro: moved ? c.introMoved : updated ? c.introUpdated : c.introCancelled,
     clientName: booking.client_name,
     rows: [
       [c.service, escapeHtml(serviceLabel)],
@@ -121,20 +129,20 @@ Deno.serve(async (req) => {
       [c.date, moved ? `<strong>${prettyDate(booking.booking_date, lang)}</strong>` : prettyDate(booking.booking_date, lang)],
       [c.time, moved ? `<strong>${time}</strong>` : time],
     ],
-    cta: moved
-      ? { label: c.manage, href: manageUrl(booking.manage_token) }
-      : { label: c.rebook, href: `${Deno.env.get("SITE_URL") ?? "https://delherren.app"}/termin` },
-    footer: moved ? c.footerMoved : c.footerCancelled,
+    cta: cancelled
+      ? { label: c.rebook, href: `${Deno.env.get("SITE_URL") ?? "https://delherren.app"}/termin` }
+      : { label: c.manage, href: manageUrl(booking.manage_token) },
+    footer: cancelled ? c.footerCancelled : c.footerMoved,
     bye: c.bye,
   });
 
   const results = await Promise.allSettled([
-    sendEmail(booking.client_email, moved ? c.subjectMoved : c.subjectCancelled, html),
+    sendEmail(booking.client_email, moved ? c.subjectMoved : updated ? c.subjectUpdated : c.subjectCancelled, html),
     fetch(`${supabaseUrl}/functions/v1/send-telegram-notification`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRole}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: moved ? "rescheduled" : "cancellation",
+        type: cancelled ? "cancellation" : "rescheduled",
         data: { booking, serviceLabel, barberName, by: "salon" },
       }),
     }),

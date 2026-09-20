@@ -135,20 +135,26 @@ describe("cote salon (demo)", () => {
     expect(b.status).toBe("done");
   });
 
-  it("rescheduleBooking ne se bloque pas lui-meme et detecte les vrais conflits", async () => {
+  it("editBooking recalcule duree et prix, ne se bloque pas lui-meme, detecte les vrais conflits", async () => {
     const a = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "12:00" });
 
-    // Decaler de 15 min sur soi-meme : autorise
-    await db.rescheduleBooking(a.id, { barber_id: "brb-del", booking_date: DATE, start_time: "10:15", duration_min: 30 });
+    const edit = {
+      service_ids: ["svc-cut-style", "svc-beardshave"], // 45 min, 28 EUR
+      barber_id: "brb-del", booking_date: DATE, start_time: "10:15",
+      client_name: "Test Kunde 2", client_phone: "+43 660 7777777", client_email: "neu@example.at", notes: "Fade",
+    };
+    // Decaler de 15 min sur soi-meme, avec une prestation de plus : autorise
+    await db.editBooking(a.id, edit, true);
     const moved = (await db.listBookings(DATE, DATE)).find((b) => b.id === a.id)!;
     expect(moved.start_time).toBe("10:15");
-    expect(moved.end_time).toBe("10:45");
+    expect(moved.end_time).toBe("11:00");
+    expect(moved.price).toBe(28);
+    expect(moved.client_name).toBe("Test Kunde 2");
+    expect(moved.notes).toBe("Fade");
 
     // Sur l'autre rendez-vous : refuse
-    await expect(
-      db.rescheduleBooking(a.id, { barber_id: "brb-del", booking_date: DATE, start_time: "12:15", duration_min: 30 }),
-    ).rejects.toThrow("SLOT_TAKEN");
+    await expect(db.editBooking(a.id, { ...edit, start_time: "11:45" }, true)).rejects.toThrow("SLOT_TAKEN");
   });
 
   it("cancelBooking horodate l'annulation", async () => {

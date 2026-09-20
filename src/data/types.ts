@@ -150,12 +150,20 @@ export interface AdminBookingInput {
   status: BookingStatus;
 }
 
-/** Deplacement d'un rendez-vous par le salon. */
-export interface ReschedulePatch {
+/**
+ * Modification d'un rendez-vous par le salon : prestations, moment, barbier,
+ * coordonnees, note. La duree et le prix sont recalcules depuis les
+ * prestations. Le client est prevenu par e-mail, sauf si le salon decoche.
+ */
+export interface BookingEdit {
+  service_ids: string[];
   barber_id: string;
   booking_date: string;
   start_time: string;
-  duration_min: number;
+  client_name: string;
+  client_phone: string;
+  client_email: string;
+  notes: string;
 }
 
 /**

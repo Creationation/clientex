@@ -1,7 +1,7 @@
 import type {
   AdminAccount, AdminBookingInput, Barber, BarberAbsence, BarberHour, BlockedSlot, Booking,
   BusySlot, ManagedBooking, NewBookingInput, OpeningHour,
-  ReschedulePatch, Service, Settings,
+  BookingEdit, Service, Settings,
 } from "@/data/types";
 import {
   SEED_ADMIN, SEED_BARBER_HOURS, SEED_BARBERS, SEED_OPENING_HOURS, SEED_SERVICES,
@@ -53,10 +53,10 @@ export interface Db {
   /** Saisie par le salon : telephone, walk-in. Pas de delai minimum, pas d'e-mail. */
   createAdminBooking(input: AdminBookingInput): Promise<Booking>;
   updateBooking(id: string, patch: Partial<Booking>): Promise<void>;
-  /** Deplacement par le salon. Le client est prevenu par e-mail cote Supabase. */
-  rescheduleBooking(id: string, patch: ReschedulePatch): Promise<void>;
-  /** Annulation par le salon, avec e-mail au client cote Supabase. */
-  cancelBooking(id: string): Promise<void>;
+  /** Modification par le salon. notify : e-mail au client (cote Supabase). */
+  editBooking(id: string, patch: BookingEdit, notify: boolean): Promise<void>;
+  /** Annulation par le salon, avec e-mail au client si notify (cote Supabase). */
+  cancelBooking(id: string, notify?: boolean): Promise<void>;
   deleteBooking(id: string): Promise<void>;
 
   /** Lien de gestion du client : lecture limitee, puis annulation si le delai le permet. */
@@ -558,24 +558,38 @@ const demoDb: Db = {
     });
   },
 
-  async rescheduleBooking(id, patch) {
+  async editBooking(id, patch) {
     const store = readStore();
     const i = store.bookings.findIndex((b) => b.id === id);
     if (i < 0) throw new Error("NOT_FOUND");
+    const picked = pickServices(store, patch.service_ids);
+    const duration = picked.reduce((sum, s) => sum + s.duration_min, 0);
+    const price = picked.reduce((sum, s) => sum + s.price, 0);
     const start = toMinutes(patch.start_time);
-    const end = start + patch.duration_min;
+    const end = start + duration;
     const problem = demoConflicts(store, patch.barber_id, patch.booking_date, start, end, id);
     if (problem === "SLOT_TAKEN") throw new Error(problem);
+    const before = store.bookings[i];
+    const moved =
+      before.booking_date !== patch.booking_date ||
+      before.start_time !== patch.start_time ||
+      before.barber_id !== patch.barber_id;
     store.bookings[i] = {
-      ...store.bookings[i],
+      ...before,
+      service_ids: picked.map((s) => s.id),
       barber_id: patch.barber_id,
       booking_date: patch.booking_date,
       start_time: patch.start_time,
       end_time: toHHMM(end),
-      duration_min: patch.duration_min,
+      duration_min: duration,
+      price,
+      client_name: patch.client_name,
+      client_phone: patch.client_phone,
+      client_email: patch.client_email,
+      notes: patch.notes,
       // Un rendez-vous deplace redevient a rappeler.
-      reminder_sent_24h: false,
-      reminder_sent_2h: false,
+      reminder_sent_24h: moved ? false : before.reminder_sent_24h,
+      reminder_sent_2h: moved ? false : before.reminder_sent_2h,
     };
     writeStore(store);
   },
@@ -924,36 +938,74 @@ const supabaseDb: Db = {
     if (error) throw mapPgError(error);
   },
 
-  async rescheduleBooking(id, patch) {
-    const end = toHHMM(toMinutes(patch.start_time) + patch.duration_min);
-    const { error } = await sb()
+  async editBooking(id, patch, notify) {
+    const client = sb();
+    // Duree et prix relus depuis la table services, jamais depuis le formulaire.
+    const { data: services, error: svcError } = await client
+      .from("services")
+      .select("id, duration_min, price")
+      .in("id", patch.service_ids);
+    if (svcError) throw new Error(svcError.message);
+    if (!services || services.length === 0) throw new Error("SERVICE_NOT_FOUND");
+    const duration = services.reduce((sum, s) => sum + s.duration_min, 0);
+    const price = services.reduce((sum, s) => sum + Number(s.price), 0);
+
+    const { data: before } = await client
+      .from("bookings")
+      .select("booking_date, start_time, barber_id")
+      .eq("id", id)
+      .maybeSingle();
+    const moved =
+      !before ||
+      before.booking_date !== patch.booking_date ||
+      hhmm(before.start_time) !== patch.start_time ||
+      before.barber_id !== patch.barber_id;
+
+    const { error } = await client
       .from("bookings")
       .update({
         barber_id: patch.barber_id,
         booking_date: patch.booking_date,
         start_time: patch.start_time,
-        end_time: end,
-        duration_min: patch.duration_min,
-        reminder_sent_24h: false,
-        reminder_sent_2h: false,
+        end_time: toHHMM(toMinutes(patch.start_time) + duration),
+        duration_min: duration,
+        price,
+        client_name: patch.client_name,
+        client_phone: patch.client_phone || "000000",
+        client_email: patch.client_email || "walkin@delherren.local",
+        notes: patch.notes,
+        ...(moved ? { reminder_sent_24h: false, reminder_sent_2h: false } : {}),
       })
       .eq("id", id);
     if (error) throw mapPgError(error);
-    // Le client est prevenu. Si l'e-mail echoue, le deplacement reste valide.
-    await sb().functions.invoke("send-booking-update", {
-      body: { booking_id: id, kind: "rescheduled" },
-    }).catch(() => undefined);
+
+    // Lignes de prestations : on remplace tout, dans l'ordre choisi.
+    const { error: delError } = await client.from("booking_services").delete().eq("booking_id", id);
+    if (delError) throw new Error(delError.message);
+    const { error: insError } = await client.from("booking_services").insert(
+      patch.service_ids.map((service_id, position) => ({ booking_id: id, service_id, position })),
+    );
+    if (insError) throw new Error(insError.message);
+
+    // Le client est prevenu. Si l'e-mail echoue, la modification reste valide.
+    if (notify) {
+      await client.functions.invoke("send-booking-update", {
+        body: { booking_id: id, kind: moved ? "rescheduled" : "updated" },
+      }).catch(() => undefined);
+    }
   },
 
-  async cancelBooking(id) {
+  async cancelBooking(id, notify = true) {
     const { error } = await sb()
       .from("bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw new Error(error.message);
-    await sb().functions.invoke("send-booking-update", {
-      body: { booking_id: id, kind: "cancelled" },
-    }).catch(() => undefined);
+    if (notify) {
+      await sb().functions.invoke("send-booking-update", {
+        body: { booking_id: id, kind: "cancelled" },
+      }).catch(() => undefined);
+    }
   },
 
   async deleteBooking(id) {

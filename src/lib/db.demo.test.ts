@@ -7,14 +7,17 @@ import { addDays, toDateKey } from "./utils";
  * Ces tests verrouillent les comportements que le client verra en demonstration.
  */
 
-/** Un mercredi a au moins 7 jours, pour rester loin du delai minimum et du dimanche. */
-function futureWednesday(): string {
+/**
+ * Un jeudi a au moins 7 jours : loin du delai minimum, pas un dimanche, et
+ * ni le mardi de Del ni le mercredi de Mustafa (jours de repos du seed).
+ */
+function futureThursday(): string {
   let d = addDays(new Date(), 7);
-  while (d.getDay() !== 3) d = addDays(d, 1);
+  while (d.getDay() !== 4) d = addDays(d, 1);
   return toDateKey(d);
 }
 
-const DATE = futureWednesday();
+const DATE = futureThursday();
 
 const client = {
   client_name: "Test Kunde",
@@ -33,7 +36,7 @@ describe("createBooking (demo)", () => {
   it("recalcule duree et prix a partir des prestations", async () => {
     const b = await db.createBooking({
       ...client,
-      barber_id: "brb-ali",
+      barber_id: "brb-del",
       service_ids: ["svc-cut-style", "svc-beardshave"], // 30 + 15 min, 18 + 10 EUR
       booking_date: DATE,
       start_time: "10:00",
@@ -48,39 +51,39 @@ describe("createBooking (demo)", () => {
   });
 
   it("refuse un creneau deja pris chez le meme barbier", async () => {
-    await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     await expect(
-      db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:15" }),
+      db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:15" }),
     ).rejects.toThrow("SLOT_TAKEN");
   });
 
   it("accepte le meme creneau chez un autre barbier", async () => {
-    await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
-    const b = await db.createBooking({ ...client, barber_id: "brb-mehmet", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
-    expect(b.barber_id).toBe("brb-mehmet");
+    await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    const b = await db.createBooking({ ...client, barber_id: "brb-mustafa", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    expect(b.barber_id).toBe("brb-mustafa");
   });
 
   it("'egal wer' est resolu en un barbier concret et libre", async () => {
-    await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     const b = await db.createBooking({ ...client, barber_id: null, service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
-    expect(b.barber_id).toBe("brb-mehmet");
+    expect(b.barber_id).toBe("brb-mustafa");
   });
 
   it("refuse un creneau hors des horaires propres du barbier", async () => {
-    await db.saveBarberHours("brb-ali", [
-      { barber_id: "brb-ali", weekday: 3, active: true, start_time: "13:00", end_time: "18:00" },
+    await db.saveBarberHours("brb-del", [
+      { barber_id: "brb-del", weekday: 4, active: true, start_time: "13:00", end_time: "18:00" },
     ]);
     await expect(
-      db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" }),
+      db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" }),
     ).rejects.toThrow("OUTSIDE_HOURS");
-    const ok = await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "13:00" });
+    const ok = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "13:00" });
     expect(ok.start_time).toBe("13:00");
   });
 
   it("refuse un barbier absent ce jour-la", async () => {
-    await db.createAbsence({ barber_id: "brb-ali", start_date: DATE, end_date: DATE, reason: "Urlaub" });
+    await db.createAbsence({ barber_id: "brb-del", start_date: DATE, end_date: DATE, reason: "Urlaub" });
     await expect(
-      db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" }),
+      db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" }),
     ).rejects.toThrow("OUTSIDE_HOURS");
   });
 });
@@ -91,7 +94,7 @@ describe("codes promo (demo)", () => {
     expect(quote.discount).toBe(3);
 
     const b = await db.createBooking({
-      ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style", "svc-beardshave"],
+      ...client, barber_id: "brb-del", service_ids: ["svc-cut-style", "svc-beardshave"],
       booking_date: DATE, start_time: "10:00", promo_code: "WILLKOMMEN10",
     });
     expect(b.discount).toBe(3);
@@ -110,7 +113,7 @@ describe("codes promo (demo)", () => {
 
   it("un code invalide fait echouer la reservation, rien n'est ecrit", async () => {
     await expect(
-      db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00", promo_code: "FAUX" }),
+      db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00", promo_code: "FAUX" }),
     ).rejects.toThrow("PROMO_NOT_FOUND");
     const rows = await db.listBookings(DATE, DATE);
     expect(rows).toHaveLength(0);
@@ -119,10 +122,10 @@ describe("codes promo (demo)", () => {
 
 describe("lien de gestion (demo)", () => {
   it("expose le rendez-vous sans donnees internes et permet l'annulation dans le delai", async () => {
-    const b = await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    const b = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     const view = await db.getManagedBooking(b.manage_token);
     expect(view?.client_name).toBe("Test Kunde");
-    expect(view?.barber_name).toBe("Ali");
+    expect(view?.barber_name).toBe("Del");
     expect(view?.service_names_de).toEqual(["Schneiden, Föhnen, Stylen"]);
     expect(view?.cancel_deadline_hours).toBe(24);
 
@@ -133,7 +136,7 @@ describe("lien de gestion (demo)", () => {
 
   it("refuse l'annulation trop tard", async () => {
     await db.saveSettings({ ...(await db.getSettings()), cancel_deadline_hours: 24 * 30 });
-    const b = await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    const b = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     await expect(db.cancelByToken(b.manage_token)).rejects.toThrow("TOO_LATE");
   });
 
@@ -149,16 +152,16 @@ describe("cote salon (demo)", () => {
     const dayOpen = new Date().getDay() !== 0;
     if (!dayOpen) return; // dimanche : le salon est ferme, rien a tester ici
 
-    await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "11:00" });
+    await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "11:00" });
     await expect(
       db.createAdminBooking({
-        barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "11:15",
+        barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "11:15",
         client_name: "Walk-in", client_phone: "", client_email: "", notes: "", status: "confirmed",
       }),
     ).rejects.toThrow("SLOT_TAKEN");
 
     const b = await db.createAdminBooking({
-      barber_id: "brb-mehmet", service_ids: ["svc-machine"], booking_date: today, start_time: "09:00",
+      barber_id: "brb-mustafa", service_ids: ["svc-machine"], booking_date: today, start_time: "09:00",
       client_name: "Walk-in", client_phone: "", client_email: "", notes: "", status: "done",
     });
     expect(b.source).toBe("admin");
@@ -166,23 +169,23 @@ describe("cote salon (demo)", () => {
   });
 
   it("rescheduleBooking ne se bloque pas lui-meme et detecte les vrais conflits", async () => {
-    const a = await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
-    await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "12:00" });
+    const a = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "12:00" });
 
     // Decaler de 15 min sur soi-meme : autorise
-    await db.rescheduleBooking(a.id, { barber_id: "brb-ali", booking_date: DATE, start_time: "10:15", duration_min: 30 });
+    await db.rescheduleBooking(a.id, { barber_id: "brb-del", booking_date: DATE, start_time: "10:15", duration_min: 30 });
     const moved = (await db.listBookings(DATE, DATE)).find((b) => b.id === a.id)!;
     expect(moved.start_time).toBe("10:15");
     expect(moved.end_time).toBe("10:45");
 
     // Sur l'autre rendez-vous : refuse
     await expect(
-      db.rescheduleBooking(a.id, { barber_id: "brb-ali", booking_date: DATE, start_time: "12:15", duration_min: 30 }),
+      db.rescheduleBooking(a.id, { barber_id: "brb-del", booking_date: DATE, start_time: "12:15", duration_min: 30 }),
     ).rejects.toThrow("SLOT_TAKEN");
   });
 
   it("cancelBooking horodate l'annulation", async () => {
-    const a = await db.createBooking({ ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
+    const a = await db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" });
     await db.cancelBooking(a.id);
     const row = (await db.listBookings(DATE, DATE)).find((b) => b.id === a.id)!;
     expect(row.status).toBe("cancelled");
@@ -196,10 +199,10 @@ describe("cote salon (demo)", () => {
 describe("deuxieme personne et cloture (demo)", () => {
   it("cree deux rendez-vous enchaines chez le meme barbier, ou aucun", async () => {
     const b = await db.createBooking({
-      ...client, barber_id: "brb-ali", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
+      ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
       second: { client_name: "Sohn", service_ids: ["svc-kids"] }, // 25 min
     });
-    const rows = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-ali");
+    const rows = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-del");
     expect(rows).toHaveLength(2);
     const son = rows.find((x) => x.client_name === "Sohn")!;
     expect(son.start_time).toBe(b.end_time);
@@ -207,14 +210,14 @@ describe("deuxieme personne et cloture (demo)", () => {
     expect(son.client_phone).toBe(client.client_phone);
 
     // Si le second ne tient pas (autre rendez-vous a 10:45), rien n'est ecrit.
-    await db.createBooking({ ...client, barber_id: "brb-mehmet", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:45" });
+    await db.createBooking({ ...client, barber_id: "brb-mustafa", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:45" });
     await expect(
       db.createBooking({
-        ...client, barber_id: "brb-mehmet", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
+        ...client, barber_id: "brb-mustafa", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00",
         second: { client_name: "Sohn", service_ids: ["svc-kids"] },
       }),
     ).rejects.toThrow("SLOT_TAKEN");
-    const mehmet = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-mehmet");
+    const mehmet = (await db.listBookings(DATE, DATE)).filter((x) => x.barber_id === "brb-mustafa");
     expect(mehmet).toHaveLength(1);
   });
 

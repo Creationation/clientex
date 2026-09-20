@@ -66,7 +66,7 @@ export const de = {
   team: {
     eyebrow: "Das Team",
     title: "Die Hände am Werk",
-    sub: "Drei Barbiere, ein Anspruch. Du kannst deinen Barbier frei wählen oder uns entscheiden lassen.",
+    sub: "Del und Mustafa, ein Anspruch. Du kannst deinen Barbier frei wählen oder uns entscheiden lassen.",
     anyBarber: "Egal wer",
     anyBarberDesc: "Der nächste freie Barbier",
     nextFree: "Nächster freier Termin",
@@ -86,6 +86,13 @@ export const de = {
       beard: "Bartpflege",
       interior: "Der Raum",
     },
+  },
+  reviews: {
+    eyebrow: "Bewertungen",
+    title: "Was unsere Kunden sagen",
+    sub: "Echte Google-Bewertungen, unverändert übernommen.",
+    showMore: "Mehr Bewertungen",
+    showLess: "Weniger anzeigen",
   },
   hours: {
     eyebrow: "Öffnungszeiten",

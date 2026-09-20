@@ -12,7 +12,7 @@ const NOW = new Date(2026, 8, 15, 12, 0);
 const base: SlotContext = {
   date: WED,
   durationMin: 30,
-  barberId: "brb-ali",
+  barberId: "brb-del",
   barbers: SEED_BARBERS,
   openingHours: SEED_OPENING_HOURS,
   barberHours: [],
@@ -38,7 +38,7 @@ describe("buildSlots", () => {
     const ctx = {
       ...base,
       durationMin: 45,
-      busy: [{ barber_id: "brb-ali", booking_date: WED_KEY, start_time: "17:30", end_time: "18:15" }],
+      busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "17:30", end_time: "18:15" }],
     };
     expect(unavailable(ctx)).toEqual(["17:00", "17:15", "17:30", "17:45", "18:00"]);
     expect(available(ctx)).toContain("16:45");
@@ -48,7 +48,7 @@ describe("buildSlots", () => {
     const ctx = {
       ...base,
       settings: { ...SEED_SETTINGS, buffer_after_min: 15 },
-      busy: [{ barber_id: "brb-ali", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
+      busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
     };
     expect(available(ctx)).not.toContain("10:30");
     expect(available(ctx)).toContain("10:45");
@@ -80,7 +80,7 @@ describe("horaires propres au barbier", () => {
   it("les horaires du barbier resserrent la plage du salon", () => {
     const ctx = {
       ...base,
-      barberHours: [{ barber_id: "brb-ali", weekday: 3, active: true, start_time: "13:00", end_time: "17:00" }],
+      barberHours: [{ barber_id: "brb-del", weekday: 3, active: true, start_time: "13:00", end_time: "17:00" }],
     };
     const times = available(ctx);
     expect(times[0]).toBe("13:00");
@@ -90,7 +90,7 @@ describe("horaires propres au barbier", () => {
   it("un jour libre (active = false) ne donne aucun creneau a ce barbier", () => {
     const ctx = {
       ...base,
-      barberHours: [{ barber_id: "brb-ali", weekday: 3, active: false, start_time: "09:00", end_time: "18:00" }],
+      barberHours: [{ barber_id: "brb-del", weekday: 3, active: false, start_time: "09:00", end_time: "18:00" }],
     };
     expect(available(ctx)).toEqual([]);
   });
@@ -98,15 +98,15 @@ describe("horaires propres au barbier", () => {
   it("les horaires d'un autre barbier n'affectent pas celui-ci", () => {
     const ctx = {
       ...base,
-      barberHours: [{ barber_id: "brb-mehmet", weekday: 3, active: false, start_time: "09:00", end_time: "18:00" }],
+      barberHours: [{ barber_id: "brb-mustafa", weekday: 3, active: false, start_time: "09:00", end_time: "18:00" }],
     };
     expect(available(ctx)).toHaveLength(39);
   });
 
   it("une absence couvre la date, bornes incluses", () => {
-    const abs = [{ id: "a", barber_id: "brb-ali", start_date: "2026-09-14", end_date: "2026-09-16", reason: "" }];
-    expect(workWindow(WED, "brb-ali", SEED_OPENING_HOURS, [], abs)).toBeNull();
-    expect(workWindow(new Date(2026, 8, 17), "brb-ali", SEED_OPENING_HOURS, [], abs)).not.toBeNull();
+    const abs = [{ id: "a", barber_id: "brb-del", start_date: "2026-09-14", end_date: "2026-09-16", reason: "" }];
+    expect(workWindow(WED, "brb-del", SEED_OPENING_HOURS, [], abs)).toBeNull();
+    expect(workWindow(new Date(2026, 8, 17), "brb-del", SEED_OPENING_HOURS, [], abs)).not.toBeNull();
   });
 });
 
@@ -115,16 +115,13 @@ describe("egal wer", () => {
     const ctx: SlotContext = {
       ...base,
       barberId: null,
-      busy: [
-        { barber_id: "brb-ali", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" },
-        { barber_id: "brb-mehmet", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" },
-      ],
+      busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
     };
-    expect(available(ctx)).toContain("10:00"); // Serkan est libre
-    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-serkan"]);
+    expect(available(ctx)).toContain("10:00"); // Mustafa est libre
+    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-mustafa"]);
   });
 
-  it("devient indisponible quand les trois sont pris", () => {
+  it("devient indisponible quand les deux sont pris", () => {
     const ctx: SlotContext = {
       ...base,
       barberId: null,
@@ -140,24 +137,32 @@ describe("egal wer", () => {
     const ctx: SlotContext = {
       ...base,
       barberId: null,
-      barbers: SEED_BARBERS.map((b) => (b.id === "brb-serkan" ? { ...b, active: false } : b)),
-      busy: [
-        { barber_id: "brb-ali", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" },
-        { barber_id: "brb-mehmet", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" },
-      ],
+      barbers: SEED_BARBERS.map((b) => (b.id === "brb-mustafa" ? { ...b, active: false } : b)),
+      busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
     };
     expect(available(ctx)).not.toContain("10:00");
+  });
+
+  it("le jour de repos d'un barbier ne bloque pas le salon", () => {
+    // Mercredi : Mustafa a son jour libre, Del travaille.
+    const ctx: SlotContext = {
+      ...base,
+      barberId: null,
+      barberHours: [{ barber_id: "brb-mustafa", weekday: 3, active: false, start_time: "09:00", end_time: "19:00" }],
+    };
+    expect(available(ctx)).toContain("10:00");
+    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-del"]);
   });
 });
 
 describe("findNextSlot", () => {
   it("saute le dimanche et les journees d'absence", () => {
-    // Depart samedi 19 : samedi complet bloque pour Ali, dimanche ferme -> lundi 21
+    // Depart samedi 19 : samedi complet bloque pour Del, dimanche ferme -> lundi 21
     const sat = new Date(2026, 8, 19);
     const next = findNextSlot(
       {
         ...base,
-        absences: [{ id: "a", barber_id: "brb-ali", start_date: "2026-09-19", end_date: "2026-09-19", reason: "" }],
+        absences: [{ id: "a", barber_id: "brb-del", start_date: "2026-09-19", end_date: "2026-09-19", reason: "" }],
         now: new Date(2026, 8, 18, 8, 0),
       },
       7,
@@ -168,7 +173,7 @@ describe("findNextSlot", () => {
 
   it("renvoie null quand rien n'est libre sur l'horizon", () => {
     const next = findNextSlot(
-      { ...base, barberHours: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ barber_id: "brb-ali", weekday: wd, active: false, start_time: "09:00", end_time: "18:00" })) },
+      { ...base, barberHours: [1, 2, 3, 4, 5, 6, 0].map((wd) => ({ barber_id: "brb-del", weekday: wd, active: false, start_time: "09:00", end_time: "18:00" })) },
       14,
       WED,
     );

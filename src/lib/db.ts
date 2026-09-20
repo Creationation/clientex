@@ -4,7 +4,8 @@ import type {
   ReschedulePatch, Service, Settings,
 } from "@/data/types";
 import {
-  SEED_ADMIN, SEED_BARBERS, SEED_OPENING_HOURS, SEED_PROMO_CODES, SEED_SERVICES, SEED_SETTINGS,
+  SEED_ADMIN, SEED_BARBER_HOURS, SEED_BARBERS, SEED_OPENING_HOURS, SEED_PROMO_CODES, SEED_SERVICES,
+  SEED_SETTINGS,
 } from "@/data/seed";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { canSelfCancel, checkPromo, discountFor, normalizeCode } from "./pricing";
@@ -90,7 +91,7 @@ export interface Db {
 
 /* ================================ DEMO ================================ */
 
-const STORE_KEY = "delherren_demo_v4";
+const STORE_KEY = "delherren_demo_v5";
 
 interface DemoAdmin extends AdminAccount {
   password: string;
@@ -115,16 +116,16 @@ const token = () => uid("tok") + Math.random().toString(36).slice(2, 10);
 function demoBookings(services: Service[]): Booking[] {
   const today = new Date();
   const rows: [number, string, string[], string, string, Booking["status"]][] = [
-    [0, "10:00", ["svc-cut-style"], "brb-ali", "Lukas Berger", "confirmed"],
-    [0, "11:30", ["svc-cut-wash-style", "svc-beardshave"], "brb-mehmet", "Deniz Yilmaz", "confirmed"],
-    [0, "14:00", ["svc-headshave", "svc-brows"], "brb-serkan", "Marco Huber", "pending"],
-    [0, "16:15", ["svc-machine"], "brb-ali", "Stefan Novak", "confirmed"],
-    [1, "09:30", ["svc-modelshave"], "brb-mehmet", "Ahmet Kaya", "confirmed"],
-    [1, "13:00", ["svc-wash-cut-color"], "brb-ali", "Philipp Wagner", "confirmed"],
-    [2, "15:00", ["svc-kids"], "brb-serkan", "Familie Gruber", "pending"],
-    [3, "17:30", ["svc-cut-style", "svc-beardshave"], "brb-ali", "Onur Demir", "confirmed"],
-    [-1, "10:30", ["svc-cut-style"], "brb-mehmet", "Jonas Maier", "done"],
-    [-2, "15:00", ["svc-machine"], "brb-serkan", "Paul Steiner", "no_show"],
+    [0, "10:00", ["svc-cut-style"], "brb-del", "Lukas Berger", "confirmed"],
+    [0, "11:30", ["svc-cut-wash-style", "svc-beardshave"], "brb-mustafa", "Deniz Yilmaz", "confirmed"],
+    [0, "14:00", ["svc-headshave", "svc-brows"], "brb-mustafa", "Marco Huber", "pending"],
+    [0, "16:15", ["svc-machine"], "brb-del", "Stefan Novak", "confirmed"],
+    [1, "09:30", ["svc-modelshave"], "brb-mustafa", "Ahmet Kaya", "confirmed"],
+    [1, "13:00", ["svc-wash-cut-color"], "brb-del", "Philipp Wagner", "confirmed"],
+    [2, "15:00", ["svc-kids"], "brb-del", "Familie Gruber", "pending"],
+    [3, "17:30", ["svc-cut-style", "svc-beardshave"], "brb-mustafa", "Onur Demir", "confirmed"],
+    [-1, "10:30", ["svc-cut-style"], "brb-mustafa", "Jonas Maier", "done"],
+    [-2, "15:00", ["svc-machine"], "brb-del", "Paul Steiner", "no_show"],
   ];
   return rows.map(([offset, time, serviceIds, barberId, name, status], i) => {
     const picked = serviceIds.map((id) => services.find((s) => s.id === id)!);
@@ -164,7 +165,7 @@ function freshStore(): DemoStore {
     services: structuredClone(SEED_SERVICES),
     barbers: structuredClone(SEED_BARBERS),
     openingHours: structuredClone(SEED_OPENING_HOURS),
-    barberHours: [],
+    barberHours: structuredClone(SEED_BARBER_HOURS),
     absences: [],
     settings: structuredClone(SEED_SETTINGS),
     bookings: demoBookings(SEED_SERVICES),

@@ -68,7 +68,7 @@ export const en: Dictionary = {
   team: {
     eyebrow: "The team",
     title: "The hands at work",
-    sub: "Three barbers, one standard. Pick your barber or let us choose for you.",
+    sub: "Del and Mustafa, one standard. Pick your barber or let us choose for you.",
     anyBarber: "No preference",
     anyBarberDesc: "The next barber available",
     nextFree: "Next free slot",
@@ -88,6 +88,13 @@ export const en: Dictionary = {
       beard: "Beard care",
       interior: "The room",
     },
+  },
+  reviews: {
+    eyebrow: "Reviews",
+    title: "What our clients say",
+    sub: "Real Google reviews, quoted as written.",
+    showMore: "More reviews",
+    showLess: "Show less",
   },
   hours: {
     eyebrow: "Opening hours",

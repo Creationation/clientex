@@ -1,4 +1,4 @@
-import type { Barber, OpeningHour, PromoCode, Service, Settings } from "./types";
+import type { Barber, BarberHour, OpeningHour, PromoCode, Service, Settings } from "./types";
 
 /**
  * DONNEES DE DEMO / SEED
@@ -26,10 +26,19 @@ export const SEED_SERVICES: Service[] = [
   { id: "svc-facewax",        slug: "gesichtsharzen",                    name_de: "Gesichtsharzen",                     name_en: "Face waxing",                   duration_min: 15, price: 7,  is_from_price: false, category: "extra", sort_order: 14, active: true },
 ];
 
+/** L'equipe reelle du salon, photos prises sur place le 17 septembre 2026. */
 export const SEED_BARBERS: Barber[] = [
-  { id: "brb-ali",    name: "Ali",    initials: "A", role_de: "Inhaber & Master Barber",  role_en: "Owner & master barber", image_url: "/media/salon-2.jpg", sort_order: 1, active: true },
-  { id: "brb-mehmet", name: "Mehmet", initials: "M", role_de: "Barber & Fade-Spezialist", role_en: "Barber & fade specialist", image_url: "/media/salon-7.jpg", sort_order: 2, active: true },
-  { id: "brb-serkan", name: "Serkan", initials: "S", role_de: "Barber & Rasur-Spezialist", role_en: "Barber & shave specialist", image_url: "/media/salon-3.jpg", sort_order: 3, active: true },
+  { id: "brb-del",     name: "Del",     initials: "D", role_de: "Inhaber & Barber", role_en: "Owner & barber", image_url: "/media/team-del.jpg",     sort_order: 1, active: true },
+  { id: "brb-mustafa", name: "Mustafa", initials: "M", role_de: "Barber",           role_en: "Barber",         image_url: "/media/team-mustafa.jpg", sort_order: 2, active: true },
+];
+
+/**
+ * Jours de repos fixes, indiques par le salon : Del a son mardi, Mustafa son
+ * mercredi. Le reste de la semaine, chacun suit les horaires du salon.
+ */
+export const SEED_BARBER_HOURS: BarberHour[] = [
+  { barber_id: "brb-del",     weekday: 2, active: false, start_time: "09:00", end_time: "19:00" },
+  { barber_id: "brb-mustafa", weekday: 3, active: false, start_time: "09:00", end_time: "19:00" },
 ];
 
 /** 0 = dimanche ... 6 = samedi. Horaires releves sur la vitrine du salon. */

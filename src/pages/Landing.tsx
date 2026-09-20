@@ -9,6 +9,7 @@ import Marquee from "@/components/sections/Marquee";
 import Services from "@/components/sections/Services";
 import Team from "@/components/sections/Team";
 import Gallery from "@/components/sections/Gallery";
+import Reviews from "@/components/sections/Reviews";
 import Hours from "@/components/sections/Hours";
 import Contact from "@/components/sections/Contact";
 import { useSalonData } from "@/hooks/useSalonData";
@@ -43,6 +44,7 @@ export default function Landing() {
           settings={settings}
         />
         <Gallery />
+        <Reviews />
         <Hours openingHours={openingHours} />
         <Contact />
       </main>

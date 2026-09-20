@@ -17,7 +17,7 @@ export const SALON = {
   email: "termin@delherren.app",
   instagram: "",
   rating: 4.9,
-  reviewCount: 256,
+  reviewCount: 262,
   lat: 48.2299,
   lng: 16.4626,
   mapsEmbed:

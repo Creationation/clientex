@@ -4,7 +4,7 @@ import type { Booking } from "@/data/types";
 
 const base: Booking = {
   id: "b", barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: "2026-09-01",
-  start_time: "10:00", end_time: "10:30", duration_min: 30, price: 18, discount: 0, promo_code: null,
+  start_time: "10:00", end_time: "10:30", duration_min: 30, price: 18,
   status: "done", source: "online", client_name: "Lukas Berger", client_email: "lukas@example.at",
   client_phone: "+43 660 1234567", notes: "", language: "de", manage_token: "t", cancelled_at: null,
   reminder_sent_24h: false, reminder_sent_2h: false, followup_sent: false, created_at: "",

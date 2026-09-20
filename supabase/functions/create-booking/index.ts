@@ -1,12 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
 import { corsHeaders, json, toHHMM, toMinutes } from "../_shared/cors.ts";
+import { isAustrianHoliday } from "../_shared/holidays.ts";
 
 /**
  * Point d'entree unique pour creer une reservation depuis le site.
  *
  * Pourquoi une Edge Function plutot qu'un insert direct depuis le navigateur :
  *  1. la table bookings n'accorde AUCUN insert a anon (voir les policies RLS)
- *  2. le prix, la duree et la remise sont recalcules ici, jamais recus du client
+ *  2. le prix et la duree sont recalcules ici, jamais recus du client
  *  3. l'ouverture du salon, les horaires du barbier, ses absences, les
  *     blocages et les conges sont revalides ici
  *  4. si aucun barbier n'est choisi, on en assigne un cote serveur, ce qui
@@ -24,7 +25,6 @@ interface Payload {
   client_phone: string;
   notes?: string;
   language?: "de" | "en";
-  promo_code?: string;
   /** Deuxieme personne : rendez-vous enchaine chez le meme barbier. */
   second?: { client_name: string; service_ids: string[] };
 }
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
   }
 
   const totalDuration = services.reduce((sum, s) => sum + s.duration_min, 0);
-  const subtotal = services.reduce((sum, s) => sum + Number(s.price), 0);
+  const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
 
   const start = toMinutes(body.start_time);
   const end = start + totalDuration;
@@ -144,24 +144,10 @@ Deno.serve(async (req) => {
     .eq("weekday", weekday)
     .maybeSingle();
 
-  if (!hours?.is_open) return json({ error: "CLOSED" }, 409);
+  if (!hours?.is_open || isAustrianHoliday(body.booking_date)) return json({ error: "CLOSED" }, 409);
   const shopOpen = toMinutes(hhmm(hours.open_time));
   const shopClose = toMinutes(hhmm(hours.close_time));
   if (start < shopOpen || blockEnd > shopClose) return json({ error: "OUTSIDE_HOURS" }, 409);
-
-  /* -------------------------- code promo (optionnel) ----------------------- */
-
-  let discount = 0;
-  let promoCode: string | null = null;
-  const rawCode = (body.promo_code ?? "").trim().toUpperCase().replace(/\s+/g, "");
-  if (rawCode) {
-    const { data: quote } = await admin.rpc("quote_promo", { p_code: rawCode, p_subtotal: subtotal });
-    const q = Array.isArray(quote) ? quote[0] : quote;
-    if (!q || q.rejection) return json({ error: `PROMO_${q?.rejection ?? "NOT_FOUND"}` }, 409);
-    discount = Number(q.discount);
-    promoCode = q.code;
-  }
-  const totalPrice = Math.max(0, subtotal - discount);
 
   /* -------------------------- barbier et conflits -------------------------- */
 
@@ -238,8 +224,6 @@ Deno.serve(async (req) => {
       end_time: endTime,
       duration_min: totalDuration,
       price: totalPrice,
-      discount,
-      promo_code: promoCode,
       source: "online",
       status: settings?.auto_confirm === false ? "pending" : "confirmed",
       client_name: name,
@@ -283,8 +267,6 @@ Deno.serve(async (req) => {
         end_time: toHHMM(blockEnd),
         duration_min: secondDuration,
         price: secondPrice,
-        discount: 0,
-        promo_code: null,
         source: "online",
         status: settings?.auto_confirm === false ? "pending" : "confirmed",
         client_name: secondName,
@@ -307,18 +289,6 @@ Deno.serve(async (req) => {
       return json({ error: code === "23P01" ? "SLOT_TAKEN" : "INSERT_FAILED" }, code === "23P01" ? 409 : 500);
     }
     second = row;
-  }
-
-  // Le code est consomme apres l'insert reussi, jamais avant.
-  if (promoCode) {
-    const { data: promo } = await admin
-      .from("promo_codes")
-      .select("id, current_uses")
-      .eq("code", promoCode)
-      .maybeSingle();
-    if (promo) {
-      await admin.from("promo_codes").update({ current_uses: promo.current_uses + 1 }).eq("id", promo.id);
-    }
   }
 
   const serviceLabel = services

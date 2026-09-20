@@ -1,4 +1,4 @@
-import type { Barber, BarberHour, OpeningHour, PromoCode, Service, Settings } from "./types";
+import type { Barber, BarberHour, OpeningHour, Service, Settings } from "./types";
 
 /**
  * DONNEES DE DEMO / SEED
@@ -66,12 +66,6 @@ export const SEED_SETTINGS: Settings = {
   daily_summary: true,
   followup_email: true,
 };
-
-/** Codes de demonstration, pour montrer la mecanique. A remplacer par le salon. */
-export const SEED_PROMO_CODES: PromoCode[] = [
-  { id: "prm-welcome", code: "WILLKOMMEN10", description: "10 % für Neukunden", discount_type: "percent", discount_value: 10, min_order: 0,  max_uses: null, current_uses: 0, active: true, expires_at: null },
-  { id: "prm-del5",    code: "DEL5",         description: "5 EUR ab 25 EUR",    discount_type: "fixed",   discount_value: 5,  min_order: 25, max_uses: 100,  current_uses: 0, active: true, expires_at: null },
-];
 
 /**
  * Compte admin de demarrage.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Ban, BarChart3, CalendarDays, Clock, Contact, KeyRound, LayoutGrid, List, LogOut, Maximize2,
-  Plus, Scissors, Tag, Users,
+  Plus, Scissors, Users,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -19,13 +19,12 @@ import { BookingSheet } from "@/components/admin/BookingSheet";
 import { ClientsTab } from "@/components/admin/ClientsTab";
 import { buildClientProfiles, phoneKey } from "@/lib/clients";
 import { NewBookingSheet } from "@/components/admin/NewBookingSheet";
-import { PromoCodesTab } from "@/components/admin/PromoCodesTab";
 import { StatsTab } from "@/components/admin/StatsTab";
 import { Panel } from "@/components/admin/shared";
 
 type TabId =
   | "today" | "week" | "bookings" | "clients" | "stats" | "services" | "barbers" | "hours"
-  | "blocks" | "promos" | "admins";
+  | "blocks" | "admins";
 
 const TABS: { id: TabId; Icon: typeof CalendarDays }[] = [
   { id: "today", Icon: LayoutGrid },
@@ -37,7 +36,6 @@ const TABS: { id: TabId; Icon: typeof CalendarDays }[] = [
   { id: "barbers", Icon: Users },
   { id: "hours", Icon: Clock },
   { id: "blocks", Icon: Ban },
-  { id: "promos", Icon: Tag },
   { id: "admins", Icon: KeyRound },
 ];
 
@@ -389,12 +387,6 @@ function Dashboard() {
         {tab === "blocks" ? (
           <Panel title={t.admin.tabs.blocks}>
             <BlocksTab barbers={barbers} blocked={blocked} reload={refresh} />
-          </Panel>
-        ) : null}
-
-        {tab === "promos" ? (
-          <Panel title={t.admin.tabs.promos}>
-            <PromoCodesTab />
           </Panel>
         ) : null}
 

@@ -1,6 +1,7 @@
 import type {
   Barber, BarberAbsence, BarberHour, BlockedSlot, BusySlot, OpeningHour, Settings,
 } from "@/data/types";
+import { isHoliday } from "./holidays";
 import { addDays, overlaps, toDateKey, toHHMM, toMinutes } from "./utils";
 
 export interface SlotContext {
@@ -40,6 +41,8 @@ export function workWindow(
 ): Interval | null {
   const shop = openingHours.find((h) => h.weekday === date.getDay());
   if (!shop || !shop.is_open) return null;
+  // Jour ferie legal : ferme, quels que soient les horaires du jour de semaine.
+  if (isHoliday(toDateKey(date))) return null;
 
   let open = toMinutes(shop.open_time);
   let close = toMinutes(shop.close_time);
@@ -169,6 +172,7 @@ export function isShopOpen(date: Date, openingHours: OpeningHour[], blocked: Blo
   const hours = openingHours.find((h) => h.weekday === date.getDay());
   if (!hours || !hours.is_open) return false;
   const dateKey = toDateKey(date);
+  if (isHoliday(dateKey)) return false;
   return !blocked.some((b) => b.date === dateKey && b.all_day && b.barber_id === null);
 }
 
@@ -176,7 +180,9 @@ export function isShopOpen(date: Date, openingHours: OpeningHour[], blocked: Blo
 export function openStatus(openingHours: OpeningHour[], now = new Date()) {
   const today = openingHours.find((h) => h.weekday === now.getDay());
   const minutes = now.getHours() * 60 + now.getMinutes();
-  if (!today || !today.is_open) return { open: false, until: null as string | null };
+  if (!today || !today.is_open || isHoliday(toDateKey(now))) {
+    return { open: false, until: null as string | null };
+  }
   const open = toMinutes(today.open_time);
   const close = toMinutes(today.close_time);
   if (minutes >= open && minutes < close) return { open: true, until: today.close_time };

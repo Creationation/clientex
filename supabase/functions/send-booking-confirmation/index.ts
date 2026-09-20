@@ -18,7 +18,6 @@ const COPY: Record<Lang, Record<string, string>> = {
     date: "Datum",
     time: "Uhrzeit",
     duration: "Dauer",
-    discount: "Rabatt",
     total: "Gesamt",
     manage: "Termin ansehen",
     cancel: "Stornieren",
@@ -36,7 +35,6 @@ const COPY: Record<Lang, Record<string, string>> = {
     date: "Date",
     time: "Time",
     duration: "Duration",
-    discount: "Discount",
     total: "Total",
     manage: "View appointment",
     cancel: "Cancel",
@@ -67,9 +65,6 @@ Deno.serve(async (req) => {
     [c.time, `${String(booking.start_time).slice(0, 5)} - ${String(booking.end_time).slice(0, 5)}`],
     [c.duration, `${booking.duration_min} min`],
   ];
-  if (Number(booking.discount) > 0) {
-    rows.push([`${c.discount} · ${escapeHtml(booking.promo_code)}`, `- ${money(booking.discount)}`]);
-  }
   rows.push([c.total, `<strong>${money(booking.price)}</strong>`]);
   if (second) {
     rows.push([

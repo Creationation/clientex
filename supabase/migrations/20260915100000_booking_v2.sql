@@ -3,9 +3,8 @@
 --
 --  - horaires propres a chaque barbier (barber_hours)
 --  - absences / conges sur une plage de dates (barber_absences)
---  - codes promo (promo_codes), valides cote serveur
 --  - lien de gestion du rendez-vous par jeton secret (bookings.manage_token)
---  - remise, origine, annulation, rappels e-mail (colonnes sur bookings)
+--  - origine, annulation, rappels e-mail (colonnes sur bookings)
 --  - reglages : delai d'annulation en ligne et rappels
 --  - nouvelles categories de prestations : farben, kinder
 --
@@ -113,92 +112,10 @@ $$;
 
 grant execute on function public.list_absences(date, date) to anon, authenticated;
 
--- ------------------------------------------------------------ promo_codes --
-
-create table if not exists public.promo_codes (
-  id             uuid primary key default gen_random_uuid(),
-  code           text not null unique check (code = upper(code) and length(code) between 2 and 32),
-  description    text not null default '',
-  discount_type  text not null check (discount_type in ('percent','fixed')),
-  discount_value numeric(6,2) not null check (discount_value > 0),
-  min_order      numeric(6,2) not null default 0 check (min_order >= 0),
-  max_uses       integer check (max_uses is null or max_uses > 0),
-  current_uses   integer not null default 0 check (current_uses >= 0),
-  active         boolean not null default true,
-  expires_at     date,
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
-);
-
-create trigger promo_codes_updated_at
-  before update on public.promo_codes
-  for each row execute function public.set_updated_at();
-
-alter table public.promo_codes enable row level security;
-
--- Jamais de lecture publique : on ne veut pas que la liste des codes soit
--- devinable. Le formulaire interroge quote_promo(), qui ne rend qu'un verdict.
-create policy "promo_codes select admin" on public.promo_codes
-  for select to authenticated
-  using (public.is_admin());
-
-create policy "promo_codes insert admin" on public.promo_codes
-  for insert to authenticated
-  with check (public.is_admin());
-
-create policy "promo_codes update admin" on public.promo_codes
-  for update to authenticated
-  using (public.is_admin())
-  with check (public.is_admin());
-
-create policy "promo_codes delete admin" on public.promo_codes
-  for delete to authenticated
-  using (public.is_admin());
-
--- Meme logique que src/lib/pricing.ts : le navigateur affiche, le serveur decide.
-create or replace function public.quote_promo(p_code text, p_subtotal numeric)
-returns table (rejection text, code text, discount_type text, discount_value numeric, discount numeric)
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  p public.promo_codes%rowtype;
-  v_discount numeric;
-begin
-  select * into p from public.promo_codes where promo_codes.code = upper(btrim(p_code));
-
-  if not found or not p.active then
-    return query select 'NOT_FOUND'::text, null::text, null::text, null::numeric, 0::numeric; return;
-  end if;
-  if p.expires_at is not null and p.expires_at < (now() at time zone 'Europe/Vienna')::date then
-    return query select 'EXPIRED'::text, null::text, null::text, null::numeric, 0::numeric; return;
-  end if;
-  if p.max_uses is not null and p.current_uses >= p.max_uses then
-    return query select 'EXHAUSTED'::text, null::text, null::text, null::numeric, 0::numeric; return;
-  end if;
-  if p_subtotal < p.min_order then
-    return query select 'MIN_ORDER'::text, null::text, null::text, null::numeric, 0::numeric; return;
-  end if;
-
-  v_discount := case when p.discount_type = 'percent'
-                     then round(p_subtotal * p.discount_value / 100)
-                     else p.discount_value end;
-  v_discount := greatest(0, least(v_discount, p_subtotal));
-
-  return query select null::text, p.code, p.discount_type, p.discount_value, v_discount;
-end;
-$$;
-
-grant execute on function public.quote_promo(text, numeric) to anon, authenticated;
-
 -- --------------------------------------------------------------- bookings --
 
 alter table public.bookings
   add column if not exists manage_token     text not null default encode(gen_random_bytes(24), 'hex'),
-  add column if not exists discount         numeric(6,2) not null default 0 check (discount >= 0),
-  add column if not exists promo_code       text,
   add column if not exists source           text not null default 'online' check (source in ('online','admin')),
   add column if not exists cancelled_at     timestamptz,
   add column if not exists reminder_sent_24h boolean not null default false,
@@ -212,7 +129,7 @@ create unique index if not exists bookings_manage_token_idx on public.bookings (
 create or replace function public.booking_by_token(p_token text)
 returns table (
   booking_date date, start_time time, end_time time, duration_min integer,
-  price numeric, discount numeric, status public.booking_status, client_name text,
+  price numeric, status public.booking_status, client_name text,
   barber_name text, service_names_de text[], service_names_en text[],
   cancel_deadline_hours integer
 )
@@ -222,7 +139,7 @@ security definer
 set search_path = public
 as $$
   select b.booking_date, b.start_time, b.end_time, b.duration_min,
-         b.price, b.discount, b.status, b.client_name,
+         b.price, b.status, b.client_name,
          coalesce(br.name, ''),
          coalesce((select array_agg(s.name_de order by bs.position)
                    from public.booking_services bs

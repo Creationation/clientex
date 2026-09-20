@@ -146,16 +146,9 @@ export default function ManageBooking() {
                     <StatusBadge status={booking.status} label={t.admin.statuses[booking.status]} />
                   </span>
                 </div>
-                <span className="shrink-0 text-right">
-                  {booking.discount > 0 ? (
-                    <span className="block font-body text-[12px] text-stone line-through">
-                      {formatPrice(booking.price + booking.discount)} EUR
-                    </span>
-                  ) : null}
-                  <span className="font-display text-[24px] font-semibold text-carbon">
-                    {formatPrice(booking.price)}
-                    <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
-                  </span>
+                <span className="shrink-0 font-display text-[24px] font-semibold text-carbon">
+                  {formatPrice(booking.price)}
+                  <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
                 </span>
               </div>
 

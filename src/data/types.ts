@@ -61,27 +61,6 @@ export interface BarberAbsence {
   reason: string;
 }
 
-export interface PromoCode {
-  id: string;
-  code: string;
-  description: string;
-  discount_type: "percent" | "fixed";
-  discount_value: number;
-  min_order: number;
-  max_uses: number | null;
-  current_uses: number;
-  active: boolean;
-  expires_at: string | null; // YYYY-MM-DD
-}
-
-/** Resultat de la validation d'un code, sans exposer la table entiere. */
-export interface PromoQuote {
-  code: string;
-  discount_type: "percent" | "fixed";
-  discount_value: number;
-  discount: number; // montant reellement deduit, en euros
-}
-
 export interface Booking {
   id: string;
   barber_id: string | null;
@@ -91,9 +70,7 @@ export interface Booking {
   start_time: string;   // HH:MM
   end_time: string;     // HH:MM
   duration_min: number; // somme des prestations
-  price: number;        // total apres remise
-  discount: number;     // remise appliquee
-  promo_code: string | null;
+  price: number;        // somme des prestations
   status: BookingStatus;
   source: BookingSource;
   client_name: string;
@@ -149,7 +126,6 @@ export interface NewBookingInput {
   client_phone: string;
   notes: string;
   language: Lang;
-  promo_code?: string;
   /**
    * Deuxieme personne (pere et fils, deux amis) : un second rendez-vous
    * enchaine juste apres le premier, chez le meme barbier. Cree en meme
@@ -203,7 +179,6 @@ export interface ManagedBooking {
   end_time: string;
   duration_min: number;
   price: number;
-  discount: number;
   status: BookingStatus;
   client_name: string;
   barber_name: string;

@@ -29,6 +29,7 @@ export default function Seo({ openingHours }: { openingHours: OpeningHour[] }) {
       description: t.meta.description,
       url: SALON.siteUrl,
       telephone: SALON.phone,
+      sameAs: SALON.instagram ? [SALON.instagram] : undefined,
       priceRange: SALON.priceRange,
       currenciesAccepted: "EUR",
       image: `${SALON.siteUrl}/og-image.png`,

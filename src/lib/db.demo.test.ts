@@ -44,7 +44,6 @@ describe("createBooking (demo)", () => {
     expect(b.duration_min).toBe(45);
     expect(b.end_time).toBe("10:45");
     expect(b.price).toBe(28);
-    expect(b.discount).toBe(0);
     expect(b.manage_token.length).toBeGreaterThan(16);
     expect(b.status).toBe("confirmed");
     expect(b.source).toBe("online");
@@ -85,38 +84,6 @@ describe("createBooking (demo)", () => {
     await expect(
       db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00" }),
     ).rejects.toThrow("OUTSIDE_HOURS");
-  });
-});
-
-describe("codes promo (demo)", () => {
-  it("applique un pourcentage et consomme une utilisation", async () => {
-    const quote = await db.quotePromo("willkommen10", 28);
-    expect(quote.discount).toBe(3);
-
-    const b = await db.createBooking({
-      ...client, barber_id: "brb-del", service_ids: ["svc-cut-style", "svc-beardshave"],
-      booking_date: DATE, start_time: "10:00", promo_code: "WILLKOMMEN10",
-    });
-    expect(b.discount).toBe(3);
-    expect(b.price).toBe(25);
-    expect(b.promo_code).toBe("WILLKOMMEN10");
-
-    const promos = await db.listPromoCodes();
-    expect(promos.find((p) => p.code === "WILLKOMMEN10")?.current_uses).toBe(1);
-  });
-
-  it("refuse un code sous le minimum, puis l'accepte avec un panier suffisant", async () => {
-    await expect(db.quotePromo("DEL5", 18)).rejects.toThrow("MIN_ORDER");
-    const q = await db.quotePromo("DEL5", 33);
-    expect(q.discount).toBe(5);
-  });
-
-  it("un code invalide fait echouer la reservation, rien n'est ecrit", async () => {
-    await expect(
-      db.createBooking({ ...client, barber_id: "brb-del", service_ids: ["svc-cut-style"], booking_date: DATE, start_time: "10:00", promo_code: "FAUX" }),
-    ).rejects.toThrow("PROMO_NOT_FOUND");
-    const rows = await db.listBookings(DATE, DATE);
-    expect(rows).toHaveLength(0);
   });
 });
 

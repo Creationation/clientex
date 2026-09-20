@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, LayoutGrid, List, Phone, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { matchesQuery } from "@/lib/clients";
+import { holidayName } from "@/lib/holidays";
 import type { Barber, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
 import { addDays, cn, toDateKey, toMinutes } from "@/lib/utils";
 import { bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
@@ -102,8 +103,8 @@ export function DayView({
         </div>
       </div>
 
-      {!hours?.is_open ? (
-        <Empty text={t.hours.closed} />
+      {!hours?.is_open || holidayName(key) ? (
+        <Empty text={holidayName(key) ? `${t.hours.closed} · ${holidayName(key)}` : t.hours.closed} />
       ) : (
         <>
         {/* Liste : par defaut sur mobile, ou a la demande */}

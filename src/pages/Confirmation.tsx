@@ -80,16 +80,9 @@ export default function Confirmation() {
         <div className="mt-10 w-full rounded-3xl border border-carbon/10 bg-white p-7 text-left shadow-soft">
           <div className="flex items-baseline justify-between gap-4 border-b border-carbon/10 pb-5">
             <span className="font-display text-[21px] font-medium text-carbon">{serviceLabel}</span>
-            <span className="shrink-0 text-right">
-              {booking.discount > 0 ? (
-                <span className="block font-body text-[12px] text-stone line-through">
-                  {formatPrice(booking.price + booking.discount)} EUR
-                </span>
-              ) : null}
-              <span className="font-display text-[24px] font-semibold text-carbon">
-                {formatPrice(booking.price)}
-                <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
-              </span>
+            <span className="shrink-0 font-display text-[24px] font-semibold text-carbon">
+              {formatPrice(booking.price)}
+              <span className="ml-1 font-body text-[13px] font-medium text-stone">EUR</span>
             </span>
           </div>
 
@@ -98,9 +91,6 @@ export default function Confirmation() {
             <Row label={t.booking.time} value={`${booking.start_time} - ${booking.end_time}`} />
             <Row label={t.booking.barber} value={barberLabel} />
             <Row label={t.booking.duration} value={`${booking.duration_min} ${t.common.min}`} />
-            {booking.promo_code ? (
-              <Row label={t.booking.discount} value={`${booking.promo_code} · - ${formatPrice(booking.discount)} EUR`} />
-            ) : null}
             <Row label={t.contact.address} value={SALON_ADDRESS_LINE} />
             <Row label={t.confirmation.reference} value={booking.id.slice(-8).toUpperCase()} />
           </dl>

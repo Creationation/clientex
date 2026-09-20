@@ -62,7 +62,7 @@ drop function if exists public.booking_by_token(text);
 create or replace function public.booking_by_token(p_token text)
 returns table (
   booking_date date, start_time time, end_time time, duration_min integer,
-  price numeric, discount numeric, status public.booking_status, client_name text,
+  price numeric, status public.booking_status, client_name text,
   barber_name text, service_names_de text[], service_names_en text[],
   service_ids uuid[], barber_id uuid, cancel_deadline_hours integer
 )
@@ -72,7 +72,7 @@ security definer
 set search_path = public
 as $$
   select b.booking_date, b.start_time, b.end_time, b.duration_min,
-         b.price, b.discount, b.status, b.client_name,
+         b.price, b.status, b.client_name,
          coalesce(br.name, ''),
          coalesce((select array_agg(s.name_de order by bs.position)
                    from public.booking_services bs

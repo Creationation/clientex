@@ -43,7 +43,7 @@ appeler `resetDemoData()` depuis `src/lib/db.ts`.
 | `npm run dev` | serveur de developpement sur le port 5180 |
 | `npm run build` | typecheck TypeScript puis build de production dans `dist/` |
 | `npm run preview` | sert le build de production en local |
-| `npm run test` | tests unitaires Vitest : moteur de creneaux, remises, mode demo |
+| `npm run test` | tests unitaires Vitest : moteur de creneaux, fiches clients, mode demo |
 | `npm run lint` | ESLint |
 
 Avant de dire qu'une modification est terminee : `npm run test` puis
@@ -96,7 +96,7 @@ src/
     sections/     Hero, Services, Team, Gallery, Hours, Contact, Marquee
     admin/        vues calendrier, editeurs CRUD, fiche rendez-vous
                   (deplacer, annuler), creation manuelle, horaires et
-                  absences par barbier, statistiques, codes promo
+                  absences par barbier, statistiques, fiches clients
     ui/           Reveal, SectionHead, Photo, Pill
     Header.tsx  Footer.tsx  FloatingActions.tsx  Seo.tsx
   contexts/       LanguageContext (DE / EN)
@@ -104,7 +104,7 @@ src/
   hooks/          useSalonData, useAdminAuth, useNextAvailability, useReveal
   i18n/           de.ts, en.ts (le type est derive de de.ts)
   lib/            db.ts (adaptateurs), slots.ts (moteur de creneaux),
-                  pricing.ts (remises, delai d'annulation), ics.ts,
+                  pricing.ts (delai d'annulation), ics.ts,
                   supabase.ts, utils.ts, *.test.ts
   pages/          Landing, Booking, Confirmation, ManageBooking, Legal,
                   Admin, Tagesplan, NotFound
@@ -138,7 +138,7 @@ public/           manifest, icones, robots.txt, sitemap.xml, sw.js
 ### Tables
 
 `services` · `barbers` · `barber_hours` · `barber_absences` · `opening_hours` ·
-`settings` · `blocked_slots` · `promo_codes` · `bookings` · `booking_services` ·
+`settings` · `blocked_slots` · `bookings` · `booking_services` ·
 `client_notes` · `admin_users`
 
 Pas de table clients : les fiches (onglet Kunden) sont reconstruites depuis
@@ -146,8 +146,8 @@ Pas de table clients : les fiches (onglet Kunden) sont reconstruites depuis
 note libre du salon est stockee, dans `client_notes`.
 
 Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
-`booking_services`, et `bookings` porte les totaux (`duration_min`, `price`,
-`discount`) recalcules cote serveur.
+`booking_services`, et `bookings` porte les totaux (`duration_min`, `price`)
+recalcules cote serveur.
 
 ### Ce que couvre la prise de rendez-vous (calquee sur sitdown-studio)
 
@@ -156,10 +156,10 @@ Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
 | une ou plusieurs prestations, barbier libre ou "egal wer" | Tagesplan, semaine, liste, temps reel (Supabase Realtime) |
 | prochain creneau libre affiche par barbier | creer un rendez-vous a la main (telephone, walk-in), sans delai minimum |
 | brouillon restaure si le client quitte la page | deplacer un rendez-vous, le client recoit un e-mail |
-| code promo valide cote serveur | annuler avec e-mail au client et Telegram au salon |
+| annulation par le client depuis son lien | annuler avec e-mail au client et Telegram au salon |
 | lien de gestion secret : voir, ajouter au calendrier, annuler | horaires propres a chaque barbier et absences (conges) |
 | annulation en ligne jusqu'a X heures avant, puis appel | statistiques : chiffre d'affaires, no-show, top prestations |
-| rappels e-mail 24 h et 2 h avant | codes promo, reglages des rappels et du delai d'annulation |
+| rappels e-mail 24 h et 2 h avant | reglages des rappels et du delai d'annulation |
 | reserver pour deux personnes (pere et fils), deux rendez-vous enchaines | Tagesplan en liste sur telephone, appel en un tap |
 | "Nochmal buchen" : memes prestations, meme barbier, il ne reste que le jour | fiches clients : visites, derniere fois, prochain rendez-vous, note libre |
 | e-mail "Danke" apres le rendez-vous, avec lien vers l'avis Google | resume du jour sur Telegram le matin |
@@ -169,6 +169,19 @@ Un rendez-vous peut combiner plusieurs prestations : les lignes vivent dans
 (`bookings.manage_token`, 48 caracteres hexadecimaux) joue ce role : il
 n'ouvre que ce rendez-vous, et la fonction `booking_by_token()` ne renvoie
 ni identifiant interne ni donnee d'un autre client.
+
+### Jours feries
+
+Le salon n'a pas le droit d'ouvrir un jour ferie : `src/lib/holidays.ts`
+calcule les treize feries autrichiens (Paques compris) et le moteur de
+creneaux, le badge "geoffnet", le Tagesplan et `create-booking` les traitent
+comme un dimanche. Rien a saisir chaque annee.
+
+### Rendez-vous d'exemple
+
+`supabase/seed_examples.sql` remplit deux semaines de rendez-vous "(Beispiel)"
+pour montrer le dashboard a Del. A retirer avant la mise en ligne :
+`delete from public.bookings where client_name like '%(Beispiel)';`
 
 ### Le moteur de creneaux
 
@@ -214,11 +227,10 @@ volontaires et commentees dans le fichier :
 - `settings` n'a pas de policy `DELETE` : c'est un singleton `id = 1`
 - `bookings` n'a pas de policy `INSERT` pour `anon` : tout passe par l'Edge Function
 
-Trois tables ne sont jamais lues directement par le public, mais via une
+Deux tables ne sont jamais lues directement par le public, mais via une
 fonction `SECURITY DEFINER` qui filtre :
 
 - `barber_absences` : `list_absences()` cache le motif aux non-admins
-- `promo_codes` : `quote_promo()` ne rend qu'un verdict, jamais la liste
 - `bookings` : `booking_by_token()` pour le lien de gestion, `public_busy_slots()` pour les creneaux
 
 ---
@@ -272,7 +284,7 @@ les autres.
 
 | Fonction | Declencheur | Effet |
 | --- | --- | --- |
-| `create-booking` | formulaire public | valide, remise, insere, Telegram + e-mail de confirmation |
+| `create-booking` | formulaire public | valide, insere, Telegram + e-mail de confirmation |
 | `cancel-booking` | lien de gestion du client | verifie le delai, annule, e-mail + Telegram |
 | `send-booking-update` | dashboard (deplacer, annuler) | e-mail au client, Telegram au salon |
 | `process-reminders` | pg_cron toutes les 30 min | rappels 24 h et 2 h, puis e-mail "Danke" 2 h apres le rendez-vous, une seule fois chacun |
@@ -462,8 +474,8 @@ ffmpeg -i source.mp4 -t 13 -an -vf "scale=1600:-2,format=yuv420p" \
 ## 10. Hors scope phase 1
 
 L'architecture les accueille sans refonte, ils ne sont pas construits :
-paiement Stripe, chatbot IA, programme de fidelite, collecte d'avis
-automatisee, rappels SMS, build natif.
+paiement Stripe, chatbot IA, programme de fidelite et codes promo (retires a la
+demande du client), rappels SMS, build natif.
 
 ---
 
@@ -472,15 +484,14 @@ automatisee, rappels SMS, build natif.
 Les valeurs ci-dessous sont des hypotheses de travail, editables dans l'admin
 et dans `supabase/seed.sql`.
 
-- horaires : Lu-Ve 09:00-19:00, Sa 09:00-18:00, Di ferme
+- horaires : Lu-Ve 09:00-19:00, Sa 09:00-18:00, Di et feries fermes, pas de pause (confirme le 20 sept.)
 - prestations : les 14 de la liste affichee en vitrine, prix reels. Les
   durees ne sont pas sur la liste : ce sont des estimations a valider
 - delai d'annulation en ligne : 24 h par defaut
 - lien "Bewertung schreiben" des e-mails de remerciement : `VITE_GOOGLE_REVIEW_URL`
   cote site et secret `GOOGLE_REVIEW_URL` cote fonctions, a remplacer par le lien
   court de la fiche Google Business (sinon, recherche Google Maps du salon)
-- codes promo de demonstration `WILLKOMMEN10` et `DEL5` : a remplacer ou desactiver
-- barbiers : 3 (Ali, Mehmet, Serkan), photos de placeholder
+- barbiers : Del (repos mardi) et Mustafa (repos mercredi), photos reelles
 - Impressum : les lignes `[ZU ERGANZEN]` dans `src/data/legal.ts` doivent etre
   remplies (forme juridique, Firmenbuchnummer, UID, gerant) avant toute mise en
   ligne. C'est une obligation legale en Autriche.

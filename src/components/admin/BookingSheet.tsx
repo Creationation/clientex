@@ -173,14 +173,7 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
           <DetailRow label={t.booking.service} value={bookingServiceLabel(booking, services, lang)} />
           <DetailRow label={t.booking.barber} value={barberName} />
           <DetailRow label={t.booking.duration} value={`${booking.duration_min} ${t.common.min}`} />
-          <DetailRow
-            label={t.booking.total}
-            value={
-              booking.discount > 0
-                ? `${booking.price} EUR (${booking.promo_code} · - ${booking.discount} EUR)`
-                : `${booking.price} EUR`
-            }
-          />
+          <DetailRow label={t.booking.total} value={`${booking.price} EUR`} />
           {booking.notes ? <DetailRow label={t.booking.notes} value={booking.notes} /> : null}
         </dl>
 

@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       "",
       `\u{1F4C5} <b>${prettyDate}</b>`,
       `\u{1F551} ${time(b.start_time)} - ${time(b.end_time)} (${esc(b.duration_min)} Min)`,
-      `\u{1F488} ${esc(data.serviceLabel)} · ${esc(b.price)} EUR${Number(b.discount) > 0 ? ` (${esc(b.promo_code)} -${esc(b.discount)})` : ''}`,
+      `\u{1F488} ${esc(data.serviceLabel)} · ${esc(b.price)} EUR`,
       `\u{1F9D4} ${esc(data.barberName)}`,
       b.notes ? `\n\u{1F4DD} ${esc(b.notes)}` : "",
       data.second

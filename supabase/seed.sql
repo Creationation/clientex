@@ -81,15 +81,6 @@ insert into public.settings (id, slot_granularity_min, min_lead_time_min, max_ad
 values (1, 15, 60, 60, 0, true, 24, true, true, true)
 on conflict (id) do nothing;
 
--- ------------------------------------------------------------- promo_codes --
--- Codes de demonstration. A remplacer par ceux du salon, ou a desactiver.
-
-insert into public.promo_codes (code, description, discount_type, discount_value, min_order, max_uses)
-values
-  ('WILLKOMMEN10', '10 % für Neukunden', 'percent', 10, 0,  null),
-  ('DEL5',         '5 EUR ab 25 EUR',    'fixed',   5,  25, 100)
-on conflict (code) do nothing;
-
 -- ------------------------------------------------------------- admin_users --
 --
 -- 1. Creer le compte dans Supabase Auth :

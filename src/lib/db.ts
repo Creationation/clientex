@@ -1,14 +1,14 @@
 import type {
   AdminAccount, AdminBookingInput, Barber, BarberAbsence, BarberHour, BlockedSlot, Booking,
-  BusySlot, ManagedBooking, NewBookingInput, OpeningHour, PromoCode, PromoQuote,
+  BusySlot, ManagedBooking, NewBookingInput, OpeningHour,
   ReschedulePatch, Service, Settings,
 } from "@/data/types";
 import {
-  SEED_ADMIN, SEED_BARBER_HOURS, SEED_BARBERS, SEED_OPENING_HOURS, SEED_PROMO_CODES, SEED_SERVICES,
+  SEED_ADMIN, SEED_BARBER_HOURS, SEED_BARBERS, SEED_OPENING_HOURS, SEED_SERVICES,
   SEED_SETTINGS,
 } from "@/data/seed";
 import { isSupabaseConfigured, supabase } from "./supabase";
-import { canSelfCancel, checkPromo, discountFor, normalizeCode } from "./pricing";
+import { canSelfCancel } from "./pricing";
 import { workWindow } from "./slots";
 import { addDays, fromDateKey, toDateKey, toHHMM, toMinutes, uid } from "./utils";
 
@@ -67,12 +67,6 @@ export interface Db {
   createBlocked(b: Omit<BlockedSlot, "id">): Promise<BlockedSlot>;
   deleteBlocked(id: string): Promise<void>;
 
-  listPromoCodes(): Promise<PromoCode[]>;
-  savePromoCode(p: PromoCode): Promise<void>;
-  deletePromoCode(id: string): Promise<void>;
-  /** Valide un code pour un montant. Rejette avec un code d'erreur PromoRejection. */
-  quotePromo(code: string, subtotal: number): Promise<PromoQuote>;
-
   /** Notes libres du salon par client (cle = telephone normalise). */
   listClientNotes(): Promise<Record<string, string>>;
   saveClientNote(key: string, name: string, note: string): Promise<void>;
@@ -106,58 +100,98 @@ interface DemoStore {
   settings: Settings;
   bookings: Booking[];
   blocked: BlockedSlot[];
-  promos: PromoCode[];
   clientNotes: Record<string, string>;
   admins: DemoAdmin[];
 }
 
 const token = () => uid("tok") + Math.random().toString(36).slice(2, 10);
 
+/**
+ * Deux semaines et demie de rendez-vous de demonstration, pour que le
+ * Tagesplan, les statistiques et les fiches clients aient quelque chose a
+ * montrer. Respecte le dimanche ferme, le mardi de Del et le mercredi de
+ * Mustafa. Le passe est "erledigt" (avec deux no-shows), le futur "bestaetigt"
+ * (avec quelques "offen").
+ */
 function demoBookings(services: Service[]): Booking[] {
   const today = new Date();
-  const rows: [number, string, string[], string, string, Booking["status"]][] = [
-    [0, "10:00", ["svc-cut-style"], "brb-del", "Lukas Berger", "confirmed"],
-    [0, "11:30", ["svc-cut-wash-style", "svc-beardshave"], "brb-mustafa", "Deniz Yilmaz", "confirmed"],
-    [0, "14:00", ["svc-headshave", "svc-brows"], "brb-mustafa", "Marco Huber", "pending"],
-    [0, "16:15", ["svc-machine"], "brb-del", "Stefan Novak", "confirmed"],
-    [1, "09:30", ["svc-modelshave"], "brb-mustafa", "Ahmet Kaya", "confirmed"],
-    [1, "13:00", ["svc-wash-cut-color"], "brb-del", "Philipp Wagner", "confirmed"],
-    [2, "15:00", ["svc-kids"], "brb-del", "Familie Gruber", "pending"],
-    [3, "17:30", ["svc-cut-style", "svc-beardshave"], "brb-mustafa", "Onur Demir", "confirmed"],
-    [-1, "10:30", ["svc-cut-style"], "brb-mustafa", "Jonas Maier", "done"],
-    [-2, "15:00", ["svc-machine"], "brb-del", "Paul Steiner", "no_show"],
+  const names = [
+    "Lukas Berger", "Deniz Yilmaz", "Marco Huber", "Stefan Novak", "Ahmet Kaya", "Philipp Wagner",
+    "Familie Gruber", "Onur Demir", "Jonas Maier", "Paul Steiner", "Daniel Hofer", "Emre Sahin",
+    "Florian Bauer", "Tobias Leitner", "Kerem Aydin", "Michael Pichler", "Sebastian Wolf",
+    "Amir Hassan", "Nikolaus Auer", "David Schmid", "Yusuf Koc", "Matthias Egger", "Adrian Mandic",
+    "Samir Nasser", "Georg Steiner",
   ];
-  return rows.map(([offset, time, serviceIds, barberId, name, status], i) => {
-    const picked = serviceIds.map((id) => services.find((s) => s.id === id)!);
-    const duration = picked.reduce((sum, s) => sum + s.duration_min, 0);
-    const price = picked.reduce((sum, s) => sum + s.price, 0);
+  // Combinaisons de prestations, dans l'esprit de ce qui se vend vraiment.
+  const combos: string[][] = [
+    ["svc-cut-style"], ["svc-cut-style"], ["svc-cut-wash-style"], ["svc-machine"],
+    ["svc-cut-style", "svc-beardshave"], ["svc-cut-wash-style", "svc-modelshave"],
+    ["svc-kids"], ["svc-headshave", "svc-beardshave"], ["svc-wash-cut-color"],
+    ["svc-cut-style", "svc-brows"], ["svc-modelshave"], ["svc-beardcolor"],
+  ];
+  const starts = [["09:00", "10:15", "11:30", "14:00", "15:30", "17:00"], ["09:30", "11:00", "13:00", "14:45", "16:15", "17:45"]];
+  const barbers = ["brb-del", "brb-mustafa"];
+  const offDay: Record<string, number> = { "brb-del": 2, "brb-mustafa": 3 };
+
+  const out: Booking[] = [];
+  let n = 0;
+  for (let offset = -8; offset <= 10; offset++) {
     const date = addDays(today, offset);
-    return {
-      id: `bkg-demo-${i}`,
-      barber_id: barberId,
-      service_ids: serviceIds,
-      booking_date: toDateKey(date),
-      start_time: time,
-      end_time: toHHMM(toMinutes(time) + duration),
-      duration_min: duration,
-      price,
-      discount: 0,
-      promo_code: null,
-      status,
-      source: "online",
-      client_name: name,
-      client_email: `${name.split(" ")[0].toLowerCase()}@example.at`,
-      client_phone: `+43 660 1000${String(i).padStart(3, "0")}`,
-      notes: "",
-      language: "de",
-      manage_token: `demo-token-${i}`,
-      cancelled_at: null,
-      reminder_sent_24h: false,
-      reminder_sent_2h: false,
-      followup_sent: false,
-      created_at: new Date().toISOString(),
-    } satisfies Booking;
-  });
+    if (date.getDay() === 0) continue;
+    barbers.forEach((barberId, bi) => {
+      if (date.getDay() === offDay[barberId]) return;
+      // Entre 2 et 4 rendez-vous par barbier et par jour, plus dense en fin de semaine.
+      const count = 2 + ((((offset + bi + date.getDay()) % 3) + 3) % 3);
+      for (let k = 0; k < count; k++) {
+        const combo = combos[(n + k) % combos.length]
+          .map((id) => services.find((x) => x.id === id))
+          .filter((x): x is Service => Boolean(x));
+        if (combo.length === 0) continue;
+        const time = starts[bi][(k * 2 + offset + 20) % starts[bi].length];
+        const duration = combo.reduce((sum, x) => sum + x.duration_min, 0);
+        const price = combo.reduce((sum, x) => sum + x.price, 0);
+        const name = names[n % names.length];
+        const past = offset < 0;
+        const status: Booking["status"] = past
+          ? (n % 9 === 4 ? "no_show" : "done")
+          : (offset > 4 && n % 6 === 1 ? "pending" : "confirmed");
+        out.push({
+          id: `bkg-demo-${n}`,
+          barber_id: barberId,
+          service_ids: combo.map((x) => x.id),
+          booking_date: toDateKey(date),
+          start_time: time,
+          end_time: toHHMM(toMinutes(time) + duration),
+          duration_min: duration,
+          price,
+          status,
+          source: n % 5 === 0 ? "admin" : "online",
+          client_name: name,
+          client_email: `${name.split(" ")[0].toLowerCase()}@example.at`,
+          client_phone: `+43 660 1${String(100000 + (n % names.length) * 7919).slice(-6)}`,
+          notes: n % 7 === 3 ? "Fade auf 3 mm, wie beim letzten Mal" : "",
+          language: "de",
+          manage_token: `demo-token-${n}`,
+          cancelled_at: null,
+          reminder_sent_24h: past,
+          reminder_sent_2h: past,
+          followup_sent: past,
+          created_at: addDays(date, -3).toISOString(),
+        });
+        n++;
+      }
+    });
+  }
+  // Eviter deux rendez-vous du meme barbier qui se chevauchent le meme jour.
+  return out.filter((bk, i) =>
+    !out.slice(0, i).some(
+      (o) =>
+        o.barber_id === bk.barber_id &&
+        o.booking_date === bk.booking_date &&
+        toMinutes(bk.start_time) < toMinutes(o.end_time) &&
+        toMinutes(o.start_time) < toMinutes(bk.end_time),
+    ),
+  );
 }
 
 function freshStore(): DemoStore {
@@ -170,8 +204,7 @@ function freshStore(): DemoStore {
     settings: structuredClone(SEED_SETTINGS),
     bookings: demoBookings(SEED_SERVICES),
     blocked: [],
-    promos: structuredClone(SEED_PROMO_CODES),
-    clientNotes: { "436601000000": "Fade auf 3 mm, links etwas kürzer." },
+    clientNotes: { "436601100000": "Fade auf 3 mm, links etwas kürzer." },
     admins: [
       {
         id: "adm-owner",
@@ -286,7 +319,6 @@ function managedView(store: DemoStore, b: Booking): ManagedBooking {
     end_time: b.end_time,
     duration_min: b.duration_min,
     price: b.price,
-    discount: b.discount,
     status: b.status,
     client_name: b.client_name,
     barber_name: store.barbers.find((x) => x.id === b.barber_id)?.name ?? "",
@@ -405,22 +437,9 @@ const demoDb: Db = {
     const store = readStore();
     const picked = pickServices(store, input.service_ids);
     const duration = picked.reduce((sum, s) => sum + s.duration_min, 0);
-    const subtotal = picked.reduce((sum, s) => sum + s.price, 0);
+    const price = picked.reduce((sum, s) => sum + s.price, 0);
     const start = toMinutes(input.start_time);
     const end = start + duration;
-
-    // Remise : revalidee ici, jamais reprise du navigateur.
-    let discount = 0;
-    let promoCode: string | null = null;
-    if (input.promo_code) {
-      const code = normalizeCode(input.promo_code);
-      const promo = store.promos.find((p) => p.code === code);
-      const rejection = checkPromo(promo, subtotal, toDateKey(new Date()));
-      if (rejection || !promo) throw new Error(`PROMO_${rejection ?? "NOT_FOUND"}`);
-      discount = discountFor(promo, subtotal);
-      promoCode = promo.code;
-      promo.current_uses += 1;
-    }
 
     // "Egal wer" est resolu en un barbier concret, sinon rien ne protege
     // reellement le creneau.
@@ -456,9 +475,7 @@ const demoDb: Db = {
       start_time: input.start_time,
       end_time: toHHMM(end),
       duration_min: duration,
-      price: subtotal - discount,
-      discount,
-      promo_code: promoCode,
+      price,
       status,
       source: "online",
       client_name: input.client_name,
@@ -485,8 +502,6 @@ const demoDb: Db = {
         end_time: toHHMM(end + d2),
         duration_min: d2,
         price: secondPicked.reduce((sum, s) => sum + s.price, 0),
-        discount: 0,
-        promo_code: null,
         client_name: input.second.client_name,
         notes: `${input.language === "en" ? "Booked together with" : "Gemeinsam gebucht mit"} ${input.client_name}`,
         manage_token: token(),
@@ -517,8 +532,6 @@ const demoDb: Db = {
       end_time: toHHMM(end),
       duration_min: duration,
       price,
-      discount: 0,
-      promo_code: null,
       status: input.status,
       source: "admin",
       client_name: input.client_name,
@@ -621,35 +634,6 @@ const demoDb: Db = {
     });
   },
 
-  async listPromoCodes() {
-    return readStore().promos;
-  },
-  async savePromoCode(p) {
-    mutate((store) => {
-      const row = { ...p, code: normalizeCode(p.code) };
-      const i = store.promos.findIndex((x) => x.id === p.id);
-      if (i >= 0) store.promos[i] = row;
-      else store.promos.push(row);
-    });
-  },
-  async deletePromoCode(id) {
-    mutate((store) => {
-      store.promos = store.promos.filter((p) => p.id !== id);
-    });
-  },
-  async quotePromo(raw, subtotal) {
-    const code = normalizeCode(raw);
-    const promo = readStore().promos.find((p) => p.code === code);
-    const rejection = checkPromo(promo, subtotal, toDateKey(new Date()));
-    if (rejection || !promo) throw new Error(rejection ?? "NOT_FOUND");
-    return {
-      code: promo.code,
-      discount_type: promo.discount_type,
-      discount_value: promo.discount_value,
-      discount: discountFor(promo, subtotal),
-    };
-  },
-
   async listClientNotes() {
     return readStore().clientNotes ?? {};
   },
@@ -732,9 +716,8 @@ function sb() {
   return supabase;
 }
 
-interface BookingRow extends Omit<Booking, "service_ids" | "price" | "discount"> {
+interface BookingRow extends Omit<Booking, "service_ids" | "price"> {
   price: number | string;
-  discount: number | string | null;
   booking_services?: { service_id: string; position?: number }[] | null;
 }
 
@@ -744,7 +727,6 @@ function mapBooking(row: BookingRow): Booking {
   return {
     ...rest,
     price: Number(row.price),
-    discount: Number(row.discount ?? 0),
     start_time: String(row.start_time).slice(0, 5),
     end_time: String(row.end_time).slice(0, 5),
     service_ids: lines.map((s) => s.service_id),
@@ -987,7 +969,6 @@ const supabaseDb: Db = {
     return {
       ...(row as ManagedBooking),
       price: Number(row.price),
-      discount: Number(row.discount ?? 0),
       start_time: hhmm(row.start_time),
       end_time: hhmm(row.end_time),
     };
@@ -1021,43 +1002,6 @@ const supabaseDb: Db = {
   async deleteBlocked(id) {
     const { error } = await sb().from("blocked_slots").delete().eq("id", id);
     if (error) throw new Error(error.message);
-  },
-
-  async listPromoCodes() {
-    const { data, error } = await sb().from("promo_codes").select("*").order("created_at");
-    if (error) throw new Error(error.message);
-    return ((data ?? []) as PromoCode[]).map((p) => ({
-      ...p,
-      discount_value: Number(p.discount_value),
-      min_order: Number(p.min_order),
-    }));
-  },
-  async savePromoCode(p) {
-    const { error } = await sb().from("promo_codes").upsert({ ...p, code: normalizeCode(p.code) });
-    if (error) throw new Error(error.message);
-  },
-  async deletePromoCode(id) {
-    const { error } = await sb().from("promo_codes").delete().eq("id", id);
-    if (error) throw new Error(error.message);
-  },
-  async quotePromo(raw, subtotal) {
-    // Fonction SECURITY DEFINER : la table promo_codes n'est jamais lue par le
-    // public, seul le verdict revient.
-    const { data, error } = await sb().rpc("quote_promo", {
-      p_code: normalizeCode(raw),
-      p_subtotal: subtotal,
-    });
-    if (error) throw new Error(error.message);
-    const row = (Array.isArray(data) ? data[0] : data) as
-      | { rejection: string | null; code: string; discount_type: string; discount_value: number; discount: number }
-      | undefined;
-    if (!row || row.rejection) throw new Error(row?.rejection ?? "NOT_FOUND");
-    return {
-      code: row.code,
-      discount_type: row.discount_type as PromoQuote["discount_type"],
-      discount_value: Number(row.discount_value),
-      discount: Number(row.discount),
-    };
   },
 
   async listClientNotes() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSlots, findNextSlot, freeBarbersAt, workWindow, type SlotContext } from "./slots";
-import { SEED_BARBERS, SEED_OPENING_HOURS, SEED_SETTINGS } from "@/data/seed";
+import { SEED_BARBER_HOURS, SEED_BARBERS, SEED_OPENING_HOURS, SEED_SETTINGS } from "@/data/seed";
 import { toDateKey } from "./utils";
 
 // Mercredi 16 septembre 2026, salon ouvert 09:00-19:00
@@ -103,6 +103,16 @@ describe("horaires propres au barbier", () => {
     expect(available(ctx)).toHaveLength(39);
   });
 
+  it("Ayouan ne travaille que le mercredi", () => {
+    const hours = SEED_BARBER_HOURS;
+    // Mercredi 16 septembre : il est la.
+    expect(workWindow(WED, "brb-ayouan", SEED_OPENING_HOURS, hours)).toEqual([9 * 60, 19 * 60]);
+    // Jeudi 17, vendredi 18, samedi 19, lundi 21 : pas de creneau.
+    for (const d of [new Date(2026, 8, 17), new Date(2026, 8, 18), new Date(2026, 8, 19), new Date(2026, 8, 21)]) {
+      expect(workWindow(d, "brb-ayouan", SEED_OPENING_HOURS, hours)).toBeNull();
+    }
+  });
+
   it("une absence couvre la date, bornes incluses", () => {
     const abs = [{ id: "a", barber_id: "brb-del", start_date: "2026-09-14", end_date: "2026-09-16", reason: "" }];
     expect(workWindow(WED, "brb-del", SEED_OPENING_HOURS, [], abs)).toBeNull();
@@ -111,20 +121,22 @@ describe("horaires propres au barbier", () => {
 });
 
 describe("egal wer", () => {
+  // Mercredi avec les vraies regles du salon : Mustafa est en repos, Del et
+  // Ayouan travaillent.
+  const wed: SlotContext = { ...base, barberId: null, barberHours: SEED_BARBER_HOURS };
+
   it("un creneau reste libre tant qu'un barbier actif est libre", () => {
     const ctx: SlotContext = {
-      ...base,
-      barberId: null,
+      ...wed,
       busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
     };
-    expect(available(ctx)).toContain("10:00"); // Mustafa est libre
-    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-mustafa"]);
+    expect(available(ctx)).toContain("10:00"); // Ayouan est libre
+    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-ayouan"]);
   });
 
-  it("devient indisponible quand les deux sont pris", () => {
+  it("devient indisponible quand tous sont pris", () => {
     const ctx: SlotContext = {
-      ...base,
-      barberId: null,
+      ...wed,
       busy: SEED_BARBERS.map((b) => ({
         barber_id: b.id, booking_date: WED_KEY, start_time: "10:00", end_time: "10:30",
       })),
@@ -135,23 +147,16 @@ describe("egal wer", () => {
 
   it("ignore les barbiers inactifs", () => {
     const ctx: SlotContext = {
-      ...base,
-      barberId: null,
-      barbers: SEED_BARBERS.map((b) => (b.id === "brb-mustafa" ? { ...b, active: false } : b)),
+      ...wed,
+      barbers: SEED_BARBERS.map((b) => (b.id === "brb-ayouan" ? { ...b, active: false } : b)),
       busy: [{ barber_id: "brb-del", booking_date: WED_KEY, start_time: "10:00", end_time: "10:30" }],
     };
     expect(available(ctx)).not.toContain("10:00");
   });
 
   it("le jour de repos d'un barbier ne bloque pas le salon", () => {
-    // Mercredi : Mustafa a son jour libre, Del travaille.
-    const ctx: SlotContext = {
-      ...base,
-      barberId: null,
-      barberHours: [{ barber_id: "brb-mustafa", weekday: 3, active: false, start_time: "09:00", end_time: "19:00" }],
-    };
-    expect(available(ctx)).toContain("10:00");
-    expect(freeBarbersAt(ctx, "10:00").map((b) => b.id)).toEqual(["brb-del"]);
+    expect(available(wed)).toContain("10:00");
+    expect(freeBarbersAt(wed, "10:00").map((b) => b.id)).toEqual(["brb-del", "brb-ayouan"]);
   });
 });
 

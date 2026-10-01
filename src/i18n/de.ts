@@ -66,7 +66,7 @@ export const de = {
   team: {
     eyebrow: "Das Team",
     title: "Die Hände am Werk",
-    sub: "Del und Mustafa, ein Anspruch. Du kannst deinen Barbier frei wählen oder uns entscheiden lassen.",
+    sub: "Del, Mustafa und Ayouan, ein Anspruch. Du kannst deinen Barbier frei wählen oder uns entscheiden lassen.",
     anyBarber: "Egal wer",
     anyBarberDesc: "Der nächste freie Barbier",
     nextFree: "Nächster freier Termin",

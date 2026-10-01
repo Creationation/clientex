@@ -383,7 +383,9 @@ npx vercel --prod
 3. Renseigner les quatre variables `VITE_*` dans Project Settings, Environment Variables
 4. Ajouter une reecriture SPA (`vercel.json` fourni) pour que `/termin` et
    `/impressum` fonctionnent au rechargement direct
-5. Brancher le domaine `delherren.app`, puis verifier ce domaine dans Resend
+5. Domaine : `delherrenfriseur.app` est enregistre chez Vercel et branche sur
+   le projet. L'apex sert le site, `www` redirige vers lui en 308. Reste a
+   verifier ce domaine dans Resend pour y basculer l'expediteur des e-mails
 
 ---
 
@@ -496,9 +498,10 @@ et dans `supabase/seed.sql`.
 - lien "Bewertung schreiben" des e-mails de remerciement : `VITE_GOOGLE_REVIEW_URL`
   cote site et secret `GOOGLE_REVIEW_URL` cote fonctions, a remplacer par le lien
   court de la fiche Google Business (sinon, recherche Google Maps du salon)
-- barbiers : Del (repos mardi) et Mustafa (repos mercredi), photos reelles
+- barbiers : Del (repos mardi), Mustafa (repos mercredi) et Ayouan (present
+  le mercredi uniquement), photos reelles
 - Impressum : les lignes `[ZU ERGANZEN]` dans `src/data/legal.ts` doivent etre
   remplies (forme juridique, Firmenbuchnummer, UID, gerant) avant toute mise en
   ligne. C'est une obligation legale en Autriche.
 - photos HD du salon, logo vectoriel, video du hero tournee sur place
-- Instagram, domaine definitif, chat_id Telegram
+- Instagram, chat_id Telegram de Del

@@ -13,6 +13,11 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["src/test/setup.ts"],
     include: ["src/**/*.test.ts"],
+    // Depuis que .env.local contient les cles du vrai projet Supabase, Vite les
+    // injecterait aussi pendant les tests et db.ts basculerait sur la base du
+    // client. On les vide ici : la suite teste l'adaptateur demo, jamais la
+    // production.
+    env: { VITE_SUPABASE_URL: "", VITE_SUPABASE_PUBLISHABLE_KEY: "" },
   },
   build: {
     rollupOptions: {

@@ -68,7 +68,7 @@ export const en: Dictionary = {
   team: {
     eyebrow: "The team",
     title: "The hands at work",
-    sub: "Del and Mustafa, one standard. Pick your barber or let us choose for you.",
+    sub: "Del, Mustafa and Ayouan, one standard. Pick your barber or let us choose for you.",
     anyBarber: "No preference",
     anyBarberDesc: "The next barber available",
     nextFree: "Next free slot",

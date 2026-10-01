@@ -26,19 +26,27 @@ export const SEED_SERVICES: Service[] = [
   { id: "svc-facewax",        slug: "gesichtsharzen",                    name_de: "Gesichtsharzen",                     name_en: "Face waxing",                   duration_min: 15, price: 7,  is_from_price: false, category: "extra", sort_order: 14, active: true },
 ];
 
-/** L'equipe reelle du salon, photos prises sur place le 17 septembre 2026. */
+/** L'equipe reelle du salon, photos prises sur place (septembre / octobre 2026). */
 export const SEED_BARBERS: Barber[] = [
   { id: "brb-del",     name: "Del",     initials: "D", role_de: "Inhaber & Barber", role_en: "Owner & barber", image_url: "/media/team-del.jpg",     sort_order: 1, active: true },
   { id: "brb-mustafa", name: "Mustafa", initials: "M", role_de: "Barber",           role_en: "Barber",         image_url: "/media/team-mustafa.jpg", sort_order: 2, active: true },
+  { id: "brb-ayouan",  name: "Ayouan",  initials: "A", role_de: "Barber (mittwochs)", role_en: "Barber (Wednesdays)", image_url: "/media/team-ayouan.jpg", sort_order: 3, active: true },
 ];
 
 /**
- * Jours de repos fixes, indiques par le salon : Del a son mardi, Mustafa son
- * mercredi. Le reste de la semaine, chacun suit les horaires du salon.
+ * Horaires propres a chaque barbier. Une ligne n'existe que pour les jours qui
+ * s'ecartent des horaires du salon ; sans ligne, le barbier suit le salon.
+ *
+ * Del a son mardi, Mustafa son mercredi. Ayouan ne vient que le mercredi :
+ * il prend donc le jour ou Mustafa est absent, et tous ses autres jours sont
+ * marques inactifs.
  */
 export const SEED_BARBER_HOURS: BarberHour[] = [
   { barber_id: "brb-del",     weekday: 2, active: false, start_time: "09:00", end_time: "19:00" },
   { barber_id: "brb-mustafa", weekday: 3, active: false, start_time: "09:00", end_time: "19:00" },
+  ...[0, 1, 2, 4, 5, 6].map((weekday) => ({
+    barber_id: "brb-ayouan", weekday, active: false, start_time: "09:00", end_time: "19:00",
+  })),
 ];
 
 /** 0 = dimanche ... 6 = samedi. Horaires releves sur la vitrine du salon. */

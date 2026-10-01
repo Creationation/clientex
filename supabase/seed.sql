@@ -46,15 +46,21 @@ where slug in ('haarschnitt','schnitt-bart','rasiermesser-cut','kinderhaarschnit
 insert into public.barbers (name, initials, role_de, role_en, image_url, sort_order)
 select v.name, v.initials, v.role_de, v.role_en, v.image_url, v.sort_order
 from (values
-  ('Del',     'D', 'Inhaber & Barber', 'Owner & barber', '/media/team-del.jpg',     1),
-  ('Mustafa', 'M', 'Barber',           'Barber',         '/media/team-mustafa.jpg', 2)
+  ('Del',     'D', 'Inhaber & Barber',   'Owner & barber',      '/media/team-del.jpg',     1),
+  ('Mustafa', 'M', 'Barber',             'Barber',              '/media/team-mustafa.jpg', 2),
+  ('Ayouan',  'A', 'Barber (mittwochs)', 'Barber (Wednesdays)', '/media/team-ayouan.jpg',  3)
 ) as v(name, initials, role_de, role_en, image_url, sort_order)
 where not exists (select 1 from public.barbers b where b.name = v.name);
 
--- Jours de repos fixes : Del le mardi (2), Mustafa le mercredi (3).
+-- Jours ou le barbier ne travaille pas. Sans ligne, il suit les horaires du
+-- salon. Del a son mardi (2), Mustafa son mercredi (3), et Ayouan ne vient que
+-- le mercredi : tous ses autres jours sont donc inactifs.
 insert into public.barber_hours (barber_id, weekday, active, start_time, end_time)
 select b.id, v.weekday, false, '09:00', '19:00'
-from (values ('Del', 2), ('Mustafa', 3)) as v(name, weekday)
+from (values
+  ('Del', 2), ('Mustafa', 3),
+  ('Ayouan', 0), ('Ayouan', 1), ('Ayouan', 2), ('Ayouan', 4), ('Ayouan', 5), ('Ayouan', 6)
+) as v(name, weekday)
 join public.barbers b on b.name = v.name
 on conflict (barber_id, weekday) do update set active = excluded.active;
 

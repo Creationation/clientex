@@ -21,3 +21,6 @@ brand/qr-demo-lan.png
 
 # Dossier de liaison du CLI Vercel (projectId, orgId)
 .vercel
+
+# Fichiers de travail du CLI Supabase (version du CLI, ref du projet linke)
+supabase/.temp/

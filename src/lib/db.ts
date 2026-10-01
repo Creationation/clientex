@@ -85,7 +85,7 @@ export interface Db {
 
 /* ================================ DEMO ================================ */
 
-const STORE_KEY = "delherren_demo_v5";
+const STORE_KEY = "delherren_demo_v6";
 
 interface DemoAdmin extends AdminAccount {
   password: string;
@@ -109,9 +109,9 @@ const token = () => uid("tok") + Math.random().toString(36).slice(2, 10);
 /**
  * Deux semaines et demie de rendez-vous de demonstration, pour que le
  * Tagesplan, les statistiques et les fiches clients aient quelque chose a
- * montrer. Respecte le dimanche ferme, le mardi de Del et le mercredi de
- * Mustafa. Le passe est "erledigt" (avec deux no-shows), le futur "bestaetigt"
- * (avec quelques "offen").
+ * montrer. Respecte le dimanche ferme, le mardi de Del, le mercredi de Mustafa
+ * et le fait qu'Ayouan ne vient que le mercredi. Le passe est "erledigt" (avec
+ * deux no-shows), le futur "bestaetigt" (avec quelques "offen").
  */
 function demoBookings(services: Service[]): Booking[] {
   const today = new Date();
@@ -129,9 +129,18 @@ function demoBookings(services: Service[]): Booking[] {
     ["svc-kids"], ["svc-headshave", "svc-beardshave"], ["svc-wash-cut-color"],
     ["svc-cut-style", "svc-brows"], ["svc-modelshave"], ["svc-beardcolor"],
   ];
-  const starts = [["09:00", "10:15", "11:30", "14:00", "15:30", "17:00"], ["09:30", "11:00", "13:00", "14:45", "16:15", "17:45"]];
-  const barbers = ["brb-del", "brb-mustafa"];
-  const offDay: Record<string, number> = { "brb-del": 2, "brb-mustafa": 3 };
+  const starts = [
+    ["09:00", "10:15", "11:30", "14:00", "15:30", "17:00"],
+    ["09:30", "11:00", "13:00", "14:45", "16:15", "17:45"],
+    ["10:00", "11:45", "13:30", "15:15", "16:45", "18:00"],
+  ];
+  const barbers = ["brb-del", "brb-mustafa", "brb-ayouan"];
+  // Jours ou le barbier ne vient pas. Ayouan n'est la que le mercredi.
+  const offDays: Record<string, number[]> = {
+    "brb-del": [2],
+    "brb-mustafa": [3],
+    "brb-ayouan": [0, 1, 2, 4, 5, 6],
+  };
 
   const out: Booking[] = [];
   let n = 0;
@@ -139,7 +148,7 @@ function demoBookings(services: Service[]): Booking[] {
     const date = addDays(today, offset);
     if (date.getDay() === 0) continue;
     barbers.forEach((barberId, bi) => {
-      if (date.getDay() === offDay[barberId]) return;
+      if (offDays[barberId].includes(date.getDay())) return;
       // Entre 2 et 4 rendez-vous par barbier et par jour, plus dense en fin de semaine.
       const count = 2 + ((((offset + bi + date.getDay()) % 3) + 3) % 3);
       for (let k = 0; k < count; k++) {

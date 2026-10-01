@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /tagesplan
 Disallow: /termin/verwalten/
 
-Sitemap: https://delherren.app/sitemap.xml
+Sitemap: https://delherrenfriseur.app/sitemap.xml

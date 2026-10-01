@@ -8,11 +8,14 @@ import { addDays, toDateKey } from "./utils";
  */
 
 /**
- * Un jeudi a au moins 7 jours : loin du delai minimum, pas un dimanche, et
- * ni le mardi de Del ni le mercredi de Mustafa (jours de repos du seed).
+ * Un jeudi a au moins 11 jours : loin du delai minimum, pas un dimanche, ni le
+ * mardi de Del ni le mercredi de Mustafa (jours de repos du seed), et surtout
+ * au-dela des rendez-vous de demonstration, qui s'arretent a +10 jours. La
+ * journee est donc entierement libre, quel que soit le jour ou les tests
+ * tournent.
  */
 function futureThursday(): string {
-  let d = addDays(new Date(), 7);
+  let d = addDays(new Date(), 11);
   while (d.getDay() !== 4) d = addDays(d, 1);
   return toDateKey(d);
 }

@@ -31,7 +31,7 @@ export function buildIcs(input: IcsInput): string {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${input.uid}@delherren.app`,
+    `UID:${input.uid}@delherrenfriseur.app`,
     `DTSTAMP:${now}`,
     `DTSTART;TZID=Europe/Vienna:${stamp(input.date, input.startTime)}`,
     `DTEND;TZID=Europe/Vienna:${stamp(input.date, input.endTime)}`,

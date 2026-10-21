@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       [c.time, moved ? `<strong>${time}</strong>` : time],
     ],
     cta: cancelled
-      ? { label: c.rebook, href: `${Deno.env.get("SITE_URL") ?? "https://delherren.app"}/termin` }
+      ? { label: c.rebook, href: `${Deno.env.get("SITE_URL") ?? "https://delherrenfriseur.app"}/termin` }
       : { label: c.manage, href: manageUrl(booking.manage_token) },
     footer: cancelled ? c.footerCancelled : c.footerMoved,
     bye: c.bye,

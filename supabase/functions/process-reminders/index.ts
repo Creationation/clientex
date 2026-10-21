@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     .eq("id", 1)
     .maybeSingle();
 
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://delherren.app";
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://delherrenfriseur.app";
   const reviewUrl =
     Deno.env.get("GOOGLE_REVIEW_URL") ??
     "https://www.google.com/maps/search/?api=1&query=DEL+Herren+Friseur+1220+Wien";

@@ -26,7 +26,7 @@ export const SALON = {
   shortName: "DEL Herren",
   address: "Erzherzog-Karl-Strasse 60, 1220 Wien",
   phone: "+43 660 87511680",
-  siteUrl: Deno.env.get("SITE_URL") ?? "https://delherren.app",
+  siteUrl: Deno.env.get("SITE_URL") ?? "https://delherrenfriseur.app",
 };
 
 export function toMinutes(hhmm: string): number {

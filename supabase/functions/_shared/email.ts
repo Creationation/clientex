@@ -6,7 +6,8 @@ import { SALON } from "./cors.ts";
  *
  * Secrets attendus :
  *   supabase secrets set RESEND_API_KEY=re_...
- *   supabase secrets set BOOKING_FROM_EMAIL="DEL Herren <termin@delherren.app>"
+ *   supabase secrets set BOOKING_FROM_EMAIL="DEL Herren <termin@delherrenfriseur.app>"
+ *   supabase secrets set BOOKING_REPLY_TO=...   (optionnel, voir plus bas)
  */
 
 export type Lang = "de" | "en";
@@ -157,7 +158,12 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       to: [to],
       subject,
       html,
-      reply_to: SALON.siteUrl.includes("delherren") ? "termin@delherren.app" : undefined,
+      // Adresse de reponse : seulement si une vraie boite aux lettres existe.
+      // Avant, une adresse etait deduite du domaine du site, ce qui pointait
+      // sur un domaine qui n'a jamais existe : toute reponse d'un client
+      // revenait en erreur. Tant que le salon n'a pas de boite, on n'annonce
+      // pas d'adresse de reponse.
+      reply_to: Deno.env.get("BOOKING_REPLY_TO") || undefined,
     }),
   });
 

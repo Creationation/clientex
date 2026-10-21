@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       [c.date, prettyDate(booking.booking_date, lang)],
       [c.time, `${String(booking.start_time).slice(0, 5)} - ${String(booking.end_time).slice(0, 5)}`],
     ],
-    cta: { label: c.cta, href: `${Deno.env.get("SITE_URL") ?? "https://delherren.app"}/termin` },
+    cta: { label: c.cta, href: `${Deno.env.get("SITE_URL") ?? "https://delherrenfriseur.app"}/termin` },
     footer: c.footer,
     bye: c.bye,
   });

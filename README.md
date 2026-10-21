@@ -75,7 +75,9 @@ Secrets **cote serveur uniquement**, jamais dans le repo :
 
 ```bash
 supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set BOOKING_FROM_EMAIL="DEL Herren <termin@delherren.app>"
+supabase secrets set BOOKING_FROM_EMAIL="DEL Herren <termin@delherrenfriseur.app>"
+# facultatif : adresse de reponse, seulement si une vraie boite existe
+supabase secrets set BOOKING_REPLY_TO=kontakt@exemple.at
 supabase secrets set TELEGRAM_BOT_TOKEN=123456:AAxxxx
 supabase secrets set TELEGRAM_CHAT_ID=-1001234567890
 # optionnels, pour notifier plusieurs personnes
@@ -384,8 +386,13 @@ npx vercel --prod
 4. Ajouter une reecriture SPA (`vercel.json` fourni) pour que `/termin` et
    `/impressum` fonctionnent au rechargement direct
 5. Domaine : `delherrenfriseur.app` est enregistre chez Vercel et branche sur
-   le projet. L'apex sert le site, `www` redirige vers lui en 308. Reste a
-   verifier ce domaine dans Resend pour y basculer l'expediteur des e-mails
+   le projet. L'apex sert le site, `www` redirige vers lui en 308. **Fait le
+   21 octobre 2026** : le domaine est aussi verifie chez Resend (DKIM, SPF et
+   le CNAME, poses dans le DNS Vercel), les e-mails partent donc de
+   `termin@delherrenfriseur.app` et `SITE_URL` pointe sur le meme domaine.
+   Il n'y a pas encore de boite aux lettres derriere cette adresse : une
+   reponse de client n'arriverait nulle part. Poser `BOOKING_REPLY_TO` le
+   jour ou le salon a une vraie adresse.
 
 ---
 

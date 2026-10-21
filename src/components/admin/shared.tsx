@@ -11,6 +11,19 @@ export const STATUS_STYLE: Record<BookingStatus, string> = {
   cancelled: "border-carbon/10 bg-transparent text-stone/60 line-through",
 };
 
+/**
+ * Une couleur par barbier, pour les distinguer d'un coup d'oeil dans le plan
+ * du jour. Attribuee par position dans la liste plutot que stockee en base :
+ * ajouter un barbier ne demande aucune migration, et les couleurs restent
+ * stables tant que l'ordre d'affichage ne change pas.
+ */
+const BARBER_COLORS = ["#A8842B", "#3F7A5E", "#2E6C8E", "#8C5AA8", "#B45F52", "#4C6B78"];
+
+export function barberColor(index: number): string {
+  const n = BARBER_COLORS.length;
+  return BARBER_COLORS[((index % n) + n) % n];
+}
+
 export const STATUS_DOT: Record<BookingStatus, string> = {
   pending: "bg-brass",
   confirmed: "bg-success",

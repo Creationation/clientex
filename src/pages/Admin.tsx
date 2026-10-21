@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Ban, BarChart3, CalendarDays, Clock, Contact, KeyRound, LayoutGrid, List, LogOut, Maximize2,
   Plus, Scissors, Users,
@@ -7,6 +7,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useSalonData } from "@/hooks/useSalonData";
+import { useTagesplanMode } from "@/hooks/useTagesplanMode";
 import { db } from "@/lib/db";
 import { SEED_ADMIN } from "@/data/seed";
 import { addDays, cn, startOfWeek, toDateKey } from "@/lib/utils";
@@ -150,7 +151,9 @@ function SignIn() {
 
 function Dashboard() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { email, name, demo, signOut } = useAdminAuth();
+  const { enabled: tagesplanMode, setEnabled: setTagesplanMode } = useTagesplanMode();
   const { services, barbers, openingHours, barberHours, settings, reload } = useSalonData(true);
 
   const [tab, setTab] = useState<TabId>("today");
@@ -267,6 +270,29 @@ function Dashboard() {
               {t.admin.today}: <strong className="text-carbon">{todayCount}</strong>
             </span>
             <LanguageSwitcher />
+            {/* Mode Tagesplan : l'appareil s'ouvrira directement sur le plan
+                du jour. Ce n'est qu'un aiguillage d'affichage, la session
+                reste intacte dans les deux sens. */}
+            <button
+              onClick={() => {
+                if (tagesplanMode) {
+                  setTagesplanMode(false);
+                } else {
+                  setTagesplanMode(true);
+                  navigate("/tagesplan");
+                }
+              }}
+              title={t.admin.tagesplan.hint}
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-widest transition-colors",
+                tagesplanMode
+                  ? "border-success/40 bg-success/10 text-success"
+                  : "border-carbon/15 text-stone hover:text-carbon",
+              )}
+            >
+              <Maximize2 size={13} />
+              {tagesplanMode ? t.admin.tagesplan.on : t.admin.tagesplan.off}
+            </button>
             {name || email ? (
               <span className="hidden font-body text-[12px] text-stone lg:block">
                 {name || email}

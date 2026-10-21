@@ -334,15 +334,17 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
           </div>
         ) : null}
 
-        {/* Statut et actions */}
+        {/* Statut et actions. Sur telephone chaque groupe prend toute la
+            largeur, sinon les trois commandes se marchent dessus et
+            debordent de la fiche. */}
         {mode === "view" ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-carbon/10 pt-5">
-            <div className="flex items-center gap-3">
+          <div className="mt-6 flex flex-col gap-3 border-t border-carbon/10 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <StatusBadge status={booking.status} label={t.admin.statuses[booking.status]} />
               <select
                 value={booking.status}
                 onChange={(e) => setStatus(e.target.value as Booking["status"])}
-                className="rounded-full border border-carbon/15 bg-white px-4 py-2 font-body text-[12px] font-medium text-carbon outline-none focus:border-carbon/45"
+                className="min-w-0 flex-1 rounded-full border border-carbon/15 bg-white px-4 py-2 font-body text-[12px] font-medium text-carbon outline-none focus:border-carbon/45 sm:flex-none"
               >
                 {(Object.keys(t.admin.statuses) as Booking["status"][]).map((s) => (
                   <option key={s} value={s}>
@@ -352,13 +354,16 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
               </select>
             </div>
             {!closed ? (
-              <div className="flex gap-2">
-                <button onClick={() => setMode("edit")} className="btn-ghost !px-4 !py-2 !text-[11px]">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <button
+                  onClick={() => setMode("edit")}
+                  className="btn-ghost !px-3 !py-2.5 !text-[11px] sm:!px-4 sm:!py-2"
+                >
                   <Pencil size={12} /> {t.admin.edit}
                 </button>
                 <button
                   onClick={() => setMode("cancel")}
-                  className="btn-ghost !px-4 !py-2 !text-[11px] hover:!border-destructive/50 hover:!text-destructive"
+                  className="btn-ghost !px-3 !py-2.5 !text-[11px] hover:!border-destructive/50 hover:!text-destructive sm:!px-4 sm:!py-2"
                 >
                   <XCircle size={12} /> {t.admin.cancelBooking}
                 </button>

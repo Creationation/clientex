@@ -5,7 +5,7 @@ import { matchesQuery } from "@/lib/clients";
 import { holidayName } from "@/lib/holidays";
 import type { Barber, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
 import { addDays, cn, toDateKey, toMinutes } from "@/lib/utils";
-import { bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
+import { barberColor, bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
 
 export interface Ctx {
   services: Service[];
@@ -33,8 +33,15 @@ export function DayView({
   date,
   setDate,
   compact = false,
+  defaultLayout = "auto",
   ...ctx
-}: Ctx & { date: Date; setDate: (d: Date) => void; compact?: boolean }) {
+}: Ctx & {
+  date: Date;
+  setDate: (d: Date) => void;
+  compact?: boolean;
+  /** "auto" = liste sur telephone, grille sur grand ecran. */
+  defaultLayout?: "auto" | "grid" | "agenda";
+}) {
   const { t, lang } = useLanguage();
   const key = toDateKey(date);
   const hours = ctx.openingHours.find((h) => h.weekday === date.getDay());
@@ -50,9 +57,10 @@ export function DayView({
 
   const dayBlocks = ctx.blocked.filter((b) => b.date === key);
 
-  // Sur telephone, une liste chronologique vaut mieux qu'une grille a
-  // trois colonnes. Le patron peut forcer l'une ou l'autre.
-  const [layout, setLayout] = useState<"auto" | "grid" | "agenda">("auto");
+  // Le plan du jour s'ouvre sur la grille, pour voir toute l'equipe d'un coup.
+  // Ailleurs, "auto" preferer la liste sur telephone. Dans les deux cas le
+  // salon peut basculer avec les deux boutons en haut a droite.
+  const [layout, setLayout] = useState<"auto" | "grid" | "agenda">(defaultLayout);
   const showAgenda = layout === "agenda";
   const showGrid = layout === "grid";
 
@@ -111,22 +119,37 @@ export function DayView({
         <div className={cn(showGrid ? "hidden" : showAgenda ? "block" : "block md:hidden")}>
           <AgendaList bookings={dayBookings} blocks={dayBlocks} compact={compact} barbers={ctx.barbers} services={ctx.services} onSelect={ctx.onSelect} />
         </div>
-        <div className={cn("overflow-x-auto", showAgenda ? "hidden" : showGrid ? "block" : "hidden md:block")}>
-          <div className="min-w-[680px]">
+        {/* Grille : toute l'equipe cote a cote. La colonne des heures et les
+            tailles de texte retrecissent sur telephone pour que les trois
+            barbiers tiennent sur l'ecran, sans defilement horizontal. */}
+        <div
+          className={cn(
+            // overflow-x-auto ne sert a rien tant que la grille tient dans
+            // l'ecran, ce qui est le cas jusqu'a trois ou quatre barbiers.
+            // C'est le filet de securite le jour ou l'equipe s'agrandit.
+            "overflow-x-auto [--time-col:38px] sm:[--time-col:56px] md:[--time-col:74px]",
+            showAgenda ? "hidden" : showGrid ? "block" : "hidden md:block",
+          )}
+        >
+          <div className="min-w-0">
             <div
-              className="grid gap-2 border-b border-carbon/10 pb-3"
-              style={{ gridTemplateColumns: `74px repeat(${Math.max(columns.length, 1)}, 1fr)` }}
+              className="grid gap-1 border-b border-carbon/10 pb-3 sm:gap-2"
+              style={{ gridTemplateColumns: `var(--time-col) repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))` }}
             >
               <span />
-              {columns.map((b) => (
+              {columns.map((b, i) => (
                 <span
                   key={b.id}
                   className={cn(
-                    "px-2 font-display font-semibold text-carbon",
-                    compact ? "text-[20px]" : "text-[16px]",
+                    "flex min-w-0 items-center gap-1.5 px-0.5 font-display font-semibold text-carbon sm:px-2",
+                    compact ? "text-[13px] sm:text-[17px] md:text-[20px]" : "text-[12px] sm:text-[14px] md:text-[16px]",
                   )}
                 >
-                  {b.name}
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: barberColor(i) }}
+                  />
+                  <span className="truncate">{b.name}</span>
                 </span>
               ))}
             </div>
@@ -134,18 +157,18 @@ export function DayView({
             {rows.map((m) => (
               <div
                 key={m}
-                className="grid gap-2 border-b border-carbon/[0.07]"
-                style={{ gridTemplateColumns: `74px repeat(${Math.max(columns.length, 1)}, 1fr)` }}
+                className="grid gap-1 border-b border-carbon/[0.07] sm:gap-2"
+                style={{ gridTemplateColumns: `var(--time-col) repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))` }}
               >
                 <span
                   className={cn(
                     "py-4 font-body tabular-nums text-stone",
-                    compact ? "text-[15px]" : "text-[12px]",
+                    compact ? "text-[11px] sm:text-[13px] md:text-[15px]" : "text-[10px] sm:text-[12px]",
                   )}
                 >
                   {String(Math.floor(m / 60)).padStart(2, "0")}:00
                 </span>
-                {columns.map((b) => {
+                {columns.map((b, bi) => {
                   const items = dayBookings.filter(
                     (bk) =>
                       bk.barber_id === b.id &&
@@ -159,11 +182,11 @@ export function DayView({
                         (toMinutes(blk.start_time) < m + 60 && toMinutes(blk.end_time) > m)),
                   );
                   return (
-                    <div key={b.id} className="space-y-1.5 py-1.5">
+                    <div key={b.id} className="min-w-0 space-y-1.5 py-1.5">
                       {blocks.map((blk) => (
                         <div
                           key={blk.id}
-                          className="rounded-xl border border-dashed border-carbon/20 bg-carbon/[0.03] px-3 py-2 font-body text-[11px] text-stone"
+                          className="truncate rounded-lg border border-dashed border-carbon/20 bg-carbon/[0.03] px-1.5 py-2 font-body text-[10px] text-stone sm:rounded-xl sm:px-3 sm:text-[11px]"
                         >
                           {blk.all_day
                             ? t.admin.allDay
@@ -175,33 +198,35 @@ export function DayView({
                         <button
                           key={bk.id}
                           onClick={() => ctx.onSelect(bk)}
-                          className="w-full rounded-xl border border-carbon/10 bg-paper-soft px-3 py-2.5 text-left transition-colors hover:border-carbon/30 hover:bg-white"
+                          className="block w-full min-w-0 rounded-lg border border-l-[3px] border-carbon/10 bg-paper-soft px-1.5 py-2 text-left transition-colors hover:border-carbon/30 hover:bg-white sm:rounded-xl sm:px-3 sm:py-2.5"
+                          style={{ borderLeftColor: barberColor(bi) }}
                         >
-                          <span className="flex items-center gap-2">
+                          <span className="flex items-center gap-1 sm:gap-2">
                             <span
-                              className={cn("h-2 w-2 rounded-full", STATUS_DOT[bk.status])}
+                              className={cn("h-1.5 w-1.5 shrink-0 rounded-full sm:h-2 sm:w-2", STATUS_DOT[bk.status])}
                             />
                             <span
                               className={cn(
-                                "font-body font-semibold tabular-nums text-carbon",
-                                compact ? "text-[15px]" : "text-[12px]",
+                                "truncate font-body font-semibold tabular-nums text-carbon",
+                                compact ? "text-[11px] sm:text-[13px] md:text-[15px]" : "text-[10px] sm:text-[12px]",
                               )}
                             >
-                              {bk.start_time} - {bk.end_time}
+                              {bk.start_time}
+                              <span className="hidden sm:inline"> - {bk.end_time}</span>
                             </span>
                           </span>
                           <span
                             className={cn(
                               "mt-0.5 block truncate font-body font-medium text-carbon",
-                              compact ? "text-[16px]" : "text-[13px]",
+                              compact ? "text-[12px] sm:text-[14px] md:text-[16px]" : "text-[11px] sm:text-[13px]",
                             )}
                           >
                             {bk.client_name}
                           </span>
                           <span
                             className={cn(
-                              "block truncate font-body text-stone",
-                              compact ? "text-[14px]" : "text-[11px]",
+                              "hidden truncate font-body text-stone sm:block",
+                              compact ? "text-[12px] md:text-[14px]" : "text-[11px]",
                             )}
                           >
                             {bookingServiceLabel(bk, ctx.services, lang)}

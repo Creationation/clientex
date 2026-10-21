@@ -318,6 +318,8 @@ export const en: Dictionary = {
       blockTime: "Block time",
       export: "Export",
       exportName: "day-plan",
+      unblock: "Remove blocked time",
+      unblockHint: "The slot becomes free and bookable online again.",
     },
     newBooking: "Add appointment",
     newBookingSub: "For phone bookings and walk-ins. The lead time does not apply here.",

@@ -233,9 +233,13 @@ function Dashboard() {
     services,
     barbers: activeBarbers,
     openingHours,
+    barberHours,
     bookings,
     blocked,
     onSelect: setSelected,
+    // Un creneau bloque renvoie vers l'onglet qui sert a le retirer. Sur le
+    // plan du jour, lui, la suppression se fait sur place.
+    onSelectBlock: () => setTab("blocks"),
   };
 
   const todayCount = bookings.filter(

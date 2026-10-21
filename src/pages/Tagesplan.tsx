@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Ban, Download, Plus, RefreshCw, Settings2 } from "lucide-react";
+import { Ban, Download, Loader2, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useSalonData } from "@/hooks/useSalonData";
 import { useTagesplanMode } from "@/hooks/useTagesplanMode";
 import { db } from "@/lib/db";
 import { buildClientProfiles, phoneKey } from "@/lib/clients";
-import { cn, formatPrice, toDateKey } from "@/lib/utils";
+import { cn, formatPrice, fromDateKey, toDateKey } from "@/lib/utils";
 import type { BlockedSlot, Booking } from "@/data/types";
 import { DayView } from "@/components/admin/CalendarViews";
 import { BookingSheet } from "@/components/admin/BookingSheet";
@@ -37,6 +37,7 @@ export default function Tagesplan() {
   const [selected, setSelected] = useState<Booking | null>(null);
   const [creating, setCreating] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [blocASupprimer, setBlocASupprimer] = useState<BlockedSlot | null>(null);
   const [version, setVersion] = useState(0);
 
   const key = toDateKey(day);
@@ -232,9 +233,11 @@ export default function Tagesplan() {
             services={services}
             barbers={activeBarbers}
             openingHours={openingHours}
+            barberHours={barberHours}
             bookings={bookings}
             blocked={blocked}
             onSelect={setSelected}
+            onSelectBlock={setBlocASupprimer}
             date={day}
             setDate={setDay}
           />
@@ -283,6 +286,105 @@ export default function Tagesplan() {
           }}
         />
       ) : null}
+
+      {blocASupprimer ? (
+        <UnblockSheet
+          bloc={blocASupprimer}
+          barbers={activeBarbers}
+          onClose={() => setBlocASupprimer(null)}
+          onDeleted={() => {
+            setBlocASupprimer(null);
+            refresh();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Retrait d'un creneau bloque. Sans cet ecran, un blocage pose par erreur
+ * restait en place : rien ne permettait de revenir en arriere depuis le plan
+ * du jour, la ou il se voit.
+ */
+function UnblockSheet({
+  bloc,
+  barbers,
+  onClose,
+  onDeleted,
+}: {
+  bloc: BlockedSlot;
+  barbers: { id: string; name: string }[];
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const { t, lang } = useLanguage();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const qui = bloc.barber_id
+    ? barbers.find((b) => b.id === bloc.barber_id)?.name ?? ""
+    : t.admin.allBarbers;
+
+  const supprimer = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await db.deleteBlocked(bloc.id);
+      onDeleted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-carbon/40 p-4 backdrop-blur-sm md:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-carbon/10 bg-white p-6 shadow-lift"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="eyebrow">{t.admin.tagesplan.blockTime}</p>
+        <h3 className="mt-1.5 font-display text-[22px] font-semibold text-carbon">
+          {t.admin.tagesplan.unblock}
+        </h3>
+
+        <div className="mt-4 rounded-2xl border border-dashed border-carbon/25 bg-carbon/[0.03] px-4 py-3">
+          <p className="font-body text-[14px] font-medium text-carbon">
+            {bloc.all_day ? t.admin.allDay : `${bloc.start_time} - ${bloc.end_time}`}
+          </p>
+          <p className="mt-0.5 font-body text-[12px] text-stone">
+            {fromDateKey(bloc.date).toLocaleDateString(lang, {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+            })}
+            {qui ? ` · ${qui}` : ""}
+            {bloc.reason ? ` · ${bloc.reason}` : ""}
+          </p>
+        </div>
+
+        <p className="mt-3 font-body text-[13px] text-stone">{t.admin.tagesplan.unblockHint}</p>
+
+        {error ? <p className="mt-4 font-body text-[13px] text-destructive">{error}</p> : null}
+
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+          <button onClick={onClose} disabled={busy} className="btn-ghost !px-4 !py-3 sm:!px-5">
+            {t.common.cancel}
+          </button>
+          <button
+            onClick={supprimer}
+            disabled={busy}
+            className="btn-solid !bg-destructive !px-4 !py-3 hover:!bg-destructive/90 sm:!px-5"
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            {t.common.delete}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

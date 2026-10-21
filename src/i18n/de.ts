@@ -316,6 +316,8 @@ export const de = {
       blockTime: "Zeit blockieren",
       export: "Export",
       exportName: "Tagesplan",
+      unblock: "Blockierte Zeit aufheben",
+      unblockHint: "Danach ist die Zeit wieder frei und online buchbar.",
     },
     newBooking: "Termin anlegen",
     newBookingSub: "Für Anrufe und Laufkundschaft. Die Vorlaufzeit gilt hier nicht.",

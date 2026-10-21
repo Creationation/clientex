@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronRight, LayoutGrid, List, Phone, Search } from "luci
 import { useLanguage } from "@/contexts/LanguageContext";
 import { matchesQuery } from "@/lib/clients";
 import { holidayName } from "@/lib/holidays";
-import type { Barber, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
+import { workWindow } from "@/lib/slots";
+import type { Barber, BarberHour, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
 import { addDays, cn, toDateKey, toMinutes } from "@/lib/utils";
 import { barberColor, bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
 
@@ -11,9 +12,13 @@ export interface Ctx {
   services: Service[];
   barbers: Barber[];
   openingHours: OpeningHour[];
+  /** Sert a griser la colonne d'un barbier le jour ou il ne travaille pas. */
+  barberHours?: BarberHour[];
   bookings: Booking[];
   blocked: BlockedSlot[];
   onSelect: (b: Booking) => void;
+  /** Sans ce rappel, un creneau bloque par erreur ne peut plus etre retire. */
+  onSelectBlock?: (b: BlockedSlot) => void;
 }
 
 function NavButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
@@ -56,6 +61,14 @@ export function DayView({
   for (let m = open; m < close; m += 60) rows.push(m);
 
   const dayBlocks = ctx.blocked.filter((b) => b.date === key);
+
+  // Les barbiers qui ne travaillent pas ce jour-la. Leur colonne est grisee,
+  // sinon on croit qu'elle est libre et on y pose des choses par erreur.
+  const enRepos = new Set(
+    columns
+      .filter((b) => workWindow(date, b.id, ctx.openingHours, ctx.barberHours ?? []) === null)
+      .map((b) => b.id),
+  );
 
   // Le plan du jour s'ouvre sur la grille, pour voir toute l'equipe d'un coup.
   // Ailleurs, "auto" preferer la liste sur telephone. Dans les deux cas le
@@ -117,7 +130,15 @@ export function DayView({
         <>
         {/* Liste : par defaut sur mobile, ou a la demande */}
         <div className={cn(showGrid ? "hidden" : showAgenda ? "block" : "block md:hidden")}>
-          <AgendaList bookings={dayBookings} blocks={dayBlocks} compact={compact} barbers={ctx.barbers} services={ctx.services} onSelect={ctx.onSelect} />
+          <AgendaList
+            bookings={dayBookings}
+            blocks={dayBlocks}
+            compact={compact}
+            barbers={ctx.barbers}
+            services={ctx.services}
+            onSelect={ctx.onSelect}
+            onSelectBlock={ctx.onSelectBlock}
+          />
         </div>
         {/* Grille : toute l'equipe cote a cote. La colonne des heures et les
             tailles de texte retrecissent sur telephone pour que les trois
@@ -141,15 +162,21 @@ export function DayView({
                 <span
                   key={b.id}
                   className={cn(
-                    "flex min-w-0 items-center gap-1.5 px-0.5 font-display font-semibold text-carbon sm:px-2",
+                    "flex min-w-0 flex-wrap items-center gap-x-1.5 px-0.5 font-display font-semibold sm:px-2",
+                    enRepos.has(b.id) ? "text-stone/50" : "text-carbon",
                     compact ? "text-[13px] sm:text-[17px] md:text-[20px]" : "text-[12px] sm:text-[14px] md:text-[16px]",
                   )}
                 >
                   <span
-                    className="h-2 w-2 shrink-0 rounded-full"
+                    className={cn("h-2 w-2 shrink-0 rounded-full", enRepos.has(b.id) && "opacity-40")}
                     style={{ backgroundColor: barberColor(i) }}
                   />
                   <span className="truncate">{b.name}</span>
+                  {enRepos.has(b.id) ? (
+                    <span className="font-body text-[9px] font-semibold uppercase tracking-wide text-stone/60 sm:text-[10px]">
+                      {t.admin.dayOff}
+                    </span>
+                  ) : null}
                 </span>
               ))}
             </div>
@@ -182,17 +209,26 @@ export function DayView({
                         (toMinutes(blk.start_time) < m + 60 && toMinutes(blk.end_time) > m)),
                   );
                   return (
-                    <div key={b.id} className="min-w-0 space-y-1.5 py-1.5">
+                    <div
+                      key={b.id}
+                      className={cn(
+                        "min-w-0 space-y-1.5 py-1.5",
+                        enRepos.has(b.id) && "bg-carbon/[0.02]",
+                      )}
+                    >
+                      {/* Un blocage se retire d'un tap : c'est le seul moyen
+                          de revenir en arriere quand on s'est bloque par
+                          erreur depuis le plan du jour. */}
                       {blocks.map((blk) => (
-                        <div
+                        <BlocCreneau
                           key={blk.id}
-                          className="truncate rounded-lg border border-dashed border-carbon/20 bg-carbon/[0.03] px-1.5 py-2 font-body text-[10px] text-stone sm:rounded-xl sm:px-3 sm:text-[11px]"
-                        >
-                          {blk.all_day
-                            ? t.admin.allDay
-                            : `${blk.start_time} - ${blk.end_time}`}
-                          {blk.reason ? ` · ${blk.reason}` : ""}
-                        </div>
+                          bloc={blk}
+                          libelle={
+                            (blk.all_day ? t.admin.allDay : `${blk.start_time} - ${blk.end_time}`) +
+                            (blk.reason ? ` · ${blk.reason}` : "")
+                          }
+                          onSelect={ctx.onSelectBlock}
+                        />
                       ))}
                       {items.map((bk) => (
                         <button
@@ -246,6 +282,36 @@ export function DayView({
   );
 }
 
+/**
+ * Un creneau bloque. Cliquable des qu'on sait quoi faire du clic, pour qu'un
+ * blocage pose par erreur puisse etre retire la ou il est visible.
+ */
+function BlocCreneau({
+  bloc,
+  libelle,
+  onSelect,
+  gros = false,
+}: {
+  bloc: BlockedSlot;
+  libelle: string;
+  onSelect?: (b: BlockedSlot) => void;
+  gros?: boolean;
+}) {
+  const classe = cn(
+    "block w-full truncate border border-dashed border-carbon/25 bg-carbon/[0.03] text-left font-body text-stone",
+    gros
+      ? "rounded-2xl px-4 py-3 text-[12px]"
+      : "rounded-lg px-1.5 py-2 text-[10px] sm:rounded-xl sm:px-3 sm:text-[11px]",
+    onSelect && "transition-colors hover:border-carbon/50 hover:bg-carbon/[0.07] hover:text-carbon",
+  );
+  if (!onSelect) return <div className={classe}>{libelle}</div>;
+  return (
+    <button type="button" onClick={() => onSelect(bloc)} className={classe}>
+      {libelle}
+    </button>
+  );
+}
+
 /** Rendez-vous du jour les uns sous les autres, gros caracteres, appel en un tap. */
 function AgendaList({
   bookings,
@@ -254,7 +320,8 @@ function AgendaList({
   barbers,
   services,
   onSelect,
-}: Pick<Ctx, "barbers" | "services" | "onSelect"> & {
+  onSelectBlock,
+}: Pick<Ctx, "barbers" | "services" | "onSelect" | "onSelectBlock"> & {
   bookings: Booking[];
   blocks: BlockedSlot[];
   compact: boolean;
@@ -264,14 +331,20 @@ function AgendaList({
   return (
     <ul className="space-y-2">
       {blocks.map((blk) => (
-        <li
-          key={blk.id}
-          className="rounded-2xl border border-dashed border-carbon/20 bg-carbon/[0.03] px-4 py-3 font-body text-[12px] text-stone"
-        >
-          {blk.all_day ? t.admin.allDay : `${blk.start_time} - ${blk.end_time}`}
-          {" · "}
-          {blk.barber_id ? barbers.find((b) => b.id === blk.barber_id)?.name : t.admin.allBarbers}
-          {blk.reason ? ` · ${blk.reason}` : ""}
+        <li key={blk.id}>
+          <BlocCreneau
+            gros
+            bloc={blk}
+            libelle={
+              (blk.all_day ? t.admin.allDay : `${blk.start_time} - ${blk.end_time}`) +
+              " · " +
+              (blk.barber_id
+                ? barbers.find((b) => b.id === blk.barber_id)?.name ?? ""
+                : t.admin.allBarbers) +
+              (blk.reason ? ` · ${blk.reason}` : "")
+            }
+            onSelect={onSelectBlock}
+          />
         </li>
       ))}
       {bookings.map((bk) => {

@@ -52,7 +52,10 @@ export default function Services({ services }: { services: Service[] }) {
                         className="group flex items-center gap-4 rounded-2xl border border-carbon/10 bg-white px-5 py-4 transition-all duration-300 hover:border-carbon/25 hover:shadow-soft"
                       >
                         <span className="min-w-0 flex-1">
-                          <span className="block font-display text-[19px] font-medium text-carbon">
+                          {/* break-words : sans lui un mot comme
+                              "Maschinenhaarschnitt" ne peut pas se couper, et
+                              il elargit toute la page sur un petit telephone. */}
+                          <span className="block [overflow-wrap:anywhere] font-display text-[17px] font-medium text-carbon sm:text-[19px]">
                             {serviceName(s, lang)}
                           </span>
                           <span className="mt-0.5 block font-body text-[12px] text-stone">

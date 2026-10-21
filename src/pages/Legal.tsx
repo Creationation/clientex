@@ -27,7 +27,9 @@ export default function Legal({ kind }: { kind: "impressum" | "datenschutz" }) {
 
       <main className="container max-w-3xl py-14 md:py-20">
         <span className="rule-left block" />
-        <h1 className="mt-5 font-display text-[clamp(2rem,5vw,2.9rem)] font-semibold text-carbon">
+        {/* break-words : "Datenschutzerklaerung" est un seul mot de vingt
+            lettres, il ne tient pas sur un petit telephone. */}
+        <h1 className="mt-5 [overflow-wrap:anywhere] font-display text-[clamp(1.6rem,6vw,2.9rem)] font-semibold text-carbon">
           {title}
         </h1>
 
@@ -39,7 +41,12 @@ export default function Legal({ kind }: { kind: "impressum" | "datenschutz" }) {
               </h2>
               <div className="mt-3 space-y-2">
                 {s.body.map((line, i) => (
-                  <p key={i} className="text-[14px] leading-relaxed text-stone">
+                  // Les mentions legales contiennent de longues adresses web
+                  // qui ne savent pas se couper toutes seules.
+                  <p
+                    key={i}
+                    className="[overflow-wrap:anywhere] text-[14px] leading-relaxed text-stone"
+                  >
                     {line}
                   </p>
                 ))}

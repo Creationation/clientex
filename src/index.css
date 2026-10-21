@@ -124,8 +124,11 @@
            active:scale-[0.98];
   }
 
+  /* min-w-0 est indispensable : un champ de saisie garde sinon une largeur
+     minimale intrinseque (environ vingt caracteres) que w-full ne reduit pas,
+     et il fait deborder sa colonne sur les petits telephones. */
   .field {
-    @apply w-full rounded-xl border border-carbon/15 bg-white px-4 py-3 text-[15px] text-carbon
+    @apply w-full min-w-0 rounded-xl border border-carbon/15 bg-white px-4 py-3 text-[15px] text-carbon
            outline-none transition-colors placeholder:text-stone/60
            focus:border-carbon/45;
   }

@@ -403,7 +403,10 @@ export default function Booking() {
         </div>
       </header>
 
-      <main className="container grid gap-10 py-10 lg:grid-cols-[1.5fr_0.8fr] lg:gap-16 lg:py-16">
+      {/* flex sur telephone, pour pouvoir remonter le recapitulatif au-dessus
+          du bouton de confirmation a la derniere etape. En grand ecran, la
+          colonne de droite reprend sa place habituelle. */}
+      <main className="container flex flex-col gap-8 py-10 lg:grid lg:grid-cols-[1.5fr_0.8fr] lg:gap-16 lg:py-16">
         <div>
           {/* Fil des etapes */}
           <ol className="mb-8 hidden flex-wrap items-center gap-x-2 gap-y-2 md:flex">
@@ -465,7 +468,7 @@ export default function Booking() {
                       onClick={() => toggleService(s.id)}
                       aria-pressed={active}
                       className={cn(
-                        "group flex items-center gap-4 rounded-2xl border bg-white p-5 text-left transition-all duration-200",
+                        "group flex items-center gap-3 rounded-2xl border bg-white p-4 text-left transition-all duration-200 sm:gap-4 sm:p-5",
                         active
                           ? "border-carbon shadow-soft"
                           : "border-carbon/12 hover:border-carbon/30",
@@ -482,7 +485,11 @@ export default function Booking() {
                         {active ? <Check size={15} /> : <Plus size={15} />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-display text-[18px] font-medium text-carbon">
+                        {/* overflow-wrap:anywhere, et pas break-words : seul
+                            "anywhere" reduit vraiment la largeur minimale du
+                            bloc, donc un mot comme "Maschinenhaarschnitt"
+                            cesse d'elargir toute la page. */}
+                        <span className="block [overflow-wrap:anywhere] font-display text-[17px] font-medium text-carbon sm:text-[18px]">
                           {serviceName(s, lang)}
                         </span>
                         <span className="mt-0.5 block font-body text-[12px] text-stone">
@@ -791,8 +798,16 @@ export default function Booking() {
                   </>
                 ) : (
                   <>
-                    <Check size={14} /> {t.booking.submit}
-                    {total > 0 ? ` · ${formatPrice(total)} EUR` : ""}
+                    <Check size={14} className="shrink-0" />
+                    {/* Libelle et prix dans un seul bloc centre : le texte
+                        passe a la ligne proprement au lieu de laisser le prix
+                        seul a droite, et le prix ne se coupe jamais en deux. */}
+                    <span className="text-center">
+                      {t.booking.submit}
+                      {total > 0 ? (
+                        <span className="whitespace-nowrap"> · {formatPrice(total)} EUR</span>
+                      ) : null}
+                    </span>
                   </>
                 )}
               </button>
@@ -810,8 +825,16 @@ export default function Booking() {
           ) : null}
         </div>
 
-        {/* Recapitulatif */}
-        <aside className="lg:sticky lg:top-28 lg:self-start">
+        {/* Recapitulatif. A la derniere etape il passe au-dessus sur
+            telephone : on regarde ce qu'on reserve, puis on confirme. Avant
+            cela il reste en dessous, pour ne pas eloigner les choix du haut
+            de l'ecran. */}
+        <aside
+          className={cn(
+            "lg:sticky lg:top-28 lg:self-start lg:order-none",
+            step === 4 ? "order-first" : "",
+          )}
+        >
           <div className="rounded-3xl border border-carbon/10 bg-white p-6 shadow-soft">
             <p className="eyebrow">{t.booking.summary}</p>
 
@@ -976,7 +999,7 @@ function ChoiceCard({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left transition-all duration-200",
+        "flex items-center gap-3 rounded-2xl border bg-white p-4 text-left transition-all duration-200 sm:gap-4 sm:p-5",
         active ? "border-carbon shadow-soft" : "border-carbon/12 hover:border-carbon/30",
       )}
     >
@@ -1000,7 +1023,11 @@ function ChoiceCard({
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block font-display text-[18px] font-medium text-carbon">{title}</span>
+        {/* break-words : un nom en un seul mot long, comme
+            "Maschinenhaarschnitt", elargit sinon toute la page. */}
+        <span className="block [overflow-wrap:anywhere] font-display text-[17px] font-medium text-carbon sm:text-[18px]">
+          {title}
+        </span>
         <span className="mt-0.5 block font-body text-[12px] text-stone">{sub}</span>
         {meta ? (
           <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-paper-soft px-2.5 py-1 font-body text-[11px] font-medium text-carbon">

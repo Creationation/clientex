@@ -69,13 +69,15 @@ export function Panel({
 }) {
   return (
     <section className="rounded-3xl border border-carbon/10 bg-white shadow-soft">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-carbon/10 px-6 py-4">
+      {/* Marges resserrees sur telephone : a 320 px, 24 px de chaque cote
+          suffisent a faire deborder la barre de titre et ses boutons. */}
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-carbon/10 px-4 py-4 sm:px-6">
         <h2 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
           {title}
         </h2>
         {action}
       </header>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </section>
   );
 }

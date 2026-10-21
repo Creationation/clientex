@@ -310,7 +310,9 @@ function StatTile({
       >
         {value}
       </p>
-      <p className="mt-0.5 font-body text-[10px] uppercase tracking-widest text-stone sm:text-[11px]">
+      {/* Interlettrage resserre sur les tres petits ecrans : "Storniert" ne
+          tient pas dans un tiers de 320 px avec tracking-widest. */}
+      <p className="mt-0.5 font-body text-[9px] uppercase tracking-wide text-stone sm:text-[11px] sm:tracking-widest">
         {label}
       </p>
     </div>
@@ -432,11 +434,17 @@ function BlockSheet({
 
         {error ? <p className="mt-4 font-body text-[13px] text-destructive">{error}</p> : null}
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button onClick={onClose} disabled={busy} className="btn-ghost !px-5 !py-3">
+        {/* Meme disposition que les autres fiches : retour a gauche, action
+            principale a droite, deux boutons de largeur egale. */}
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+          <button onClick={onClose} disabled={busy} className="btn-ghost !px-4 !py-3 sm:!px-5">
             {t.common.close}
           </button>
-          <button onClick={save} disabled={busy || !valide} className="btn-solid !px-5 !py-3">
+          <button
+            onClick={save}
+            disabled={busy || !valide}
+            className="btn-solid !px-4 !py-3 sm:!px-5"
+          >
             {t.admin.create}
           </button>
         </div>

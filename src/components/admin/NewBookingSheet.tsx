@@ -260,15 +260,21 @@ export function NewBookingSheet({
           </p>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-carbon/10 pt-5">
+        {/* Le total au-dessus, les deux boutons en dessous sur telephone :
+            on voit ce qu'on cree avant de valider. */}
+        <div className="mt-6 flex flex-col gap-3 border-t border-carbon/10 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <span className="font-display text-[22px] font-semibold text-carbon">
             {formatPrice(price)} <span className="font-body text-[12px] font-medium text-stone">EUR</span>
           </span>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="btn-ghost !px-5 !py-2.5">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button onClick={onClose} className="btn-ghost !px-4 !py-3 sm:!px-5 sm:!py-2.5">
               {t.common.cancel}
             </button>
-            <button onClick={save} disabled={!canSave || saving} className="btn-solid !px-5 !py-2.5">
+            <button
+              onClick={save}
+              disabled={!canSave || saving}
+              className="btn-solid !px-4 !py-3 sm:!px-5 sm:!py-2.5"
+            >
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
               {t.admin.create}
             </button>

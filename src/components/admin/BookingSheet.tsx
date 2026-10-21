@@ -134,7 +134,7 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
   };
 
   const notifyToggle = (
-    <label className="flex items-center gap-2.5 font-body text-[13px] text-carbon">
+    <label className="flex flex-wrap items-center gap-2.5 font-body text-[13px] text-carbon">
       <input
         type="checkbox"
         className="h-4 w-4 accent-carbon"
@@ -298,13 +298,24 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
               </Field>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            {/* Meme disposition dans toutes les fiches : la case a cocher
+                au-dessus, puis deux boutons de largeur egale, le retour a
+                gauche et l'action principale a droite. */}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               {notifyToggle}
-              <div className="flex gap-2">
-                <button onClick={() => setMode("view")} disabled={busy} className="btn-ghost !px-5 !py-2.5">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <button
+                  onClick={() => setMode("view")}
+                  disabled={busy}
+                  className="btn-ghost !px-4 !py-3 sm:!px-5 sm:!py-2.5"
+                >
                   {t.common.cancel}
                 </button>
-                <button onClick={save} disabled={busy || !canSave} className="btn-solid !px-5 !py-2.5">
+                <button
+                  onClick={save}
+                  disabled={busy || !canSave}
+                  className="btn-solid !px-4 !py-3 sm:!px-5 sm:!py-2.5"
+                >
                   {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   {t.common.save}
                 </button>
@@ -318,17 +329,23 @@ export function BookingSheet({ booking, services, barbers, client, onClose, onCh
           <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/[0.05] p-4">
             <p className="font-display text-[18px] font-medium text-carbon">{t.admin.cancelConfirm}</p>
             <div className="mt-3">{notifyToggle}</div>
-            <div className="mt-4 flex flex-wrap gap-2">
+            {/* Le choix sans danger a gauche, l'annulation a droite : on ne
+                supprime pas un rendez-vous par reflexe du pouce. */}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex">
+              <button
+                onClick={() => setMode("view")}
+                disabled={busy}
+                className="btn-ghost !px-4 !py-3 sm:!px-5 sm:!py-2.5"
+              >
+                {t.manage.cancelKeep}
+              </button>
               <button
                 onClick={cancel}
                 disabled={busy}
-                className="btn-solid !bg-destructive !px-5 !py-2.5 hover:!bg-destructive/90"
+                className="btn-solid !bg-destructive !px-4 !py-3 hover:!bg-destructive/90 sm:!px-5 sm:!py-2.5"
               >
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />}
                 {t.admin.cancelBooking}
-              </button>
-              <button onClick={() => setMode("view")} disabled={busy} className="btn-ghost !px-5 !py-2.5">
-                {t.manage.cancelKeep}
               </button>
             </div>
           </div>

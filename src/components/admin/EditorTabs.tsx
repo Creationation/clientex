@@ -108,7 +108,9 @@ export function ServicesTab({ services, reload }: { services: Service[]; reload:
                 onChange={(e) => patch(s.id, { sort_order: Number(e.target.value) })}
               />
             </Field>
-            <div className="flex items-end gap-2 md:col-span-2">
+            {/* flex-wrap : sur un petit telephone le bouton passe sous
+                le commutateur au lieu d'elargir toute la ligne. */}
+            <div className="flex min-w-0 flex-wrap items-end gap-2 md:col-span-2">
               <Toggle
                 on={s.active}
                 onClick={() => patch(s.id, { active: !s.active })}
@@ -219,7 +221,9 @@ export function BarbersTab({
                 onChange={(e) => patch(b.id, { image_url: e.target.value || null })}
               />
             </Field>
-            <div className="flex items-end gap-2 md:col-span-2">
+            {/* flex-wrap : sur un petit telephone le bouton passe sous
+                le commutateur au lieu d'elargir toute la ligne. */}
+            <div className="flex min-w-0 flex-wrap items-end gap-2 md:col-span-2">
               <Toggle
                 on={b.active}
                 onClick={() => patch(b.id, { active: !b.active })}

@@ -361,6 +361,7 @@ export const de = {
       bookFor: "Termin anlegen",
       empty: "Noch keine Kunden mit Telefonnummer.",
       none: "Noch nie",
+      noEmail: "Keine E-Mail hinterlegt",
     },
     stats: {
       revenueToday: "Umsatz heute",

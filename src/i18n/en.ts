@@ -363,6 +363,7 @@ export const en: Dictionary = {
       bookFor: "Add appointment",
       empty: "No clients with a phone number yet.",
       none: "Never",
+      noEmail: "No email on file",
     },
     stats: {
       revenueToday: "Revenue today",

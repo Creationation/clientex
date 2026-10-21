@@ -124,8 +124,8 @@ export function StatsTab({
       <p className="font-body text-[12px] text-stone">{t.admin.stats.hint}</p>
 
       {/* 30 jours */}
-      <div className="rounded-2xl border border-carbon/10 bg-paper-soft p-5">
-        <h3 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
+      <div className="min-w-0 rounded-2xl border border-carbon/10 bg-paper-soft p-5">
+        <h3 className="[overflow-wrap:anywhere] font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
           {t.admin.stats.last30}
         </h3>
         <div className="mt-4 flex h-40 items-end gap-[3px]">
@@ -144,10 +144,10 @@ export function StatsTab({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         {/* Top prestations */}
-        <div className="rounded-2xl border border-carbon/10 bg-paper-soft p-5">
-          <h3 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
+        <div className="min-w-0 rounded-2xl border border-carbon/10 bg-paper-soft p-5">
+          <h3 className="[overflow-wrap:anywhere] font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
             {t.admin.stats.topServices}
           </h3>
           <ol className="mt-4 space-y-2.5">
@@ -167,8 +167,8 @@ export function StatsTab({
         </div>
 
         {/* Barbiers */}
-        <div className="rounded-2xl border border-carbon/10 bg-paper-soft p-5">
-          <h3 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
+        <div className="min-w-0 rounded-2xl border border-carbon/10 bg-paper-soft p-5">
+          <h3 className="[overflow-wrap:anywhere] font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
             {t.admin.stats.topBarbers}
           </h3>
           <ul className="mt-4 space-y-3">
@@ -190,8 +190,8 @@ export function StatsTab({
         </div>
 
         {/* Jours de semaine */}
-        <div className="rounded-2xl border border-carbon/10 bg-paper-soft p-5">
-          <h3 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
+        <div className="min-w-0 rounded-2xl border border-carbon/10 bg-paper-soft p-5">
+          <h3 className="[overflow-wrap:anywhere] font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
             {t.admin.stats.byWeekday}
           </h3>
           <div className="mt-4 flex h-32 items-end gap-2">

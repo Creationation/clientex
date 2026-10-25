@@ -51,8 +51,15 @@ export function workWindow(
     const dateKey = toDateKey(date);
     if (isBarberAbsent(barberId, dateKey, absences)) return null;
 
+    // Jour de travail en plus : remplace ses horaires de la semaine ce jour-la.
+    const extra = extraWorkDay(barberId, dateKey, absences);
     const own = barberHours.find((h) => h.barber_id === barberId && h.weekday === date.getDay());
-    if (own) {
+    if (extra) {
+      if (extra.start_time && extra.end_time) {
+        open = Math.max(open, toMinutes(extra.start_time));
+        close = Math.min(close, toMinutes(extra.end_time));
+      }
+    } else if (own) {
       if (!own.active) return null;
       open = Math.max(open, toMinutes(own.start_time));
       close = Math.min(close, toMinutes(own.end_time));
@@ -64,7 +71,13 @@ export function workWindow(
 
 export function isBarberAbsent(barberId: string, dateKey: string, absences: BarberAbsence[]): boolean {
   return absences.some(
-    (a) => a.barber_id === barberId && a.start_date <= dateKey && dateKey <= a.end_date,
+    (a) => a.kind !== "work" && a.barber_id === barberId && a.start_date <= dateKey && dateKey <= a.end_date,
+  );
+}
+
+export function extraWorkDay(barberId: string, dateKey: string, absences: BarberAbsence[]): BarberAbsence | undefined {
+  return absences.find(
+    (a) => a.kind === "work" && a.barber_id === barberId && a.start_date <= dateKey && dateKey <= a.end_date,
   );
 }
 

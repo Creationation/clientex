@@ -156,17 +156,25 @@ Deno.serve(async (req) => {
       admin.from("blocked_slots").select("barber_id, start_time, end_time, all_day").eq("date", body.booking_date),
       admin.from("bookings").select("barber_id, start_time, end_time").eq("booking_date", body.booking_date).neq("status", "cancelled"),
       admin.from("barber_hours").select("barber_id, active, start_time, end_time").eq("weekday", weekday),
-      admin.from("barber_absences").select("barber_id").lte("start_date", body.booking_date).gte("end_date", body.booking_date),
+      admin.from("barber_absences").select("barber_id, kind, start_time, end_time").lte("start_date", body.booking_date).gte("end_date", body.booking_date),
     ]);
 
-  const absent = new Set((absences ?? []).map((a) => a.barber_id));
+  const absent = new Set((absences ?? []).filter((a) => a.kind !== "work").map((a) => a.barber_id));
+  // Jour de travail en plus : remplace les horaires de la semaine ce jour-la.
+  const extra = new Map((absences ?? []).filter((a) => a.kind === "work").map((a) => [a.barber_id, a]));
 
   // "OUTSIDE_HOURS" si le barbier ne travaille pas a ce moment, "SLOT_TAKEN"
   // si quelque chose occupe deja l'intervalle. Meme logique que src/lib/slots.ts.
   const problemFor = (barberId: string): "OUTSIDE_HOURS" | "SLOT_TAKEN" | null => {
     if (absent.has(barberId)) return "OUTSIDE_HOURS";
+    const day = extra.get(barberId);
     const own = (barberHours ?? []).find((h) => h.barber_id === barberId);
-    if (own) {
+    if (day) {
+      if (day.start_time && day.end_time &&
+        (start < toMinutes(hhmm(day.start_time)) || blockEnd > toMinutes(hhmm(day.end_time)))) {
+        return "OUTSIDE_HOURS";
+      }
+    } else if (own) {
       if (!own.active) return "OUTSIDE_HOURS";
       if (start < toMinutes(hhmm(own.start_time)) || blockEnd > toMinutes(hhmm(own.end_time))) {
         return "OUTSIDE_HOURS";

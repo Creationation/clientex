@@ -4,7 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { matchesQuery } from "@/lib/clients";
 import { holidayName } from "@/lib/holidays";
 import { workWindow } from "@/lib/slots";
-import type { Barber, BarberHour, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
+import type { Barber, BarberAbsence, BarberHour, BlockedSlot, Booking, OpeningHour, Service } from "@/data/types";
 import { addDays, cn, toDateKey, toMinutes } from "@/lib/utils";
 import { barberColor, bookingServiceLabel, Empty, STATUS_DOT, StatusBadge } from "./shared";
 
@@ -14,6 +14,8 @@ export interface Ctx {
   openingHours: OpeningHour[];
   /** Sert a griser la colonne d'un barbier le jour ou il ne travaille pas. */
   barberHours?: BarberHour[];
+  /** Absences et jours de travail en plus, pour la meme raison. */
+  absences?: BarberAbsence[];
   bookings: Booking[];
   blocked: BlockedSlot[];
   onSelect: (b: Booking) => void;
@@ -66,7 +68,7 @@ export function DayView({
   // sinon on croit qu'elle est libre et on y pose des choses par erreur.
   const enRepos = new Set(
     columns
-      .filter((b) => workWindow(date, b.id, ctx.openingHours, ctx.barberHours ?? []) === null)
+      .filter((b) => workWindow(date, b.id, ctx.openingHours, ctx.barberHours ?? [], ctx.absences ?? []) === null)
       .map((b) => b.id),
   );
 

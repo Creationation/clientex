@@ -8,7 +8,7 @@ import { useTagesplanMode } from "@/hooks/useTagesplanMode";
 import { db } from "@/lib/db";
 import { buildClientProfiles, phoneKey } from "@/lib/clients";
 import { cn, formatPrice, fromDateKey, toDateKey } from "@/lib/utils";
-import type { BlockedSlot, Booking } from "@/data/types";
+import type { BarberAbsence, BlockedSlot, Booking } from "@/data/types";
 import { DayView } from "@/components/admin/CalendarViews";
 import { BookingSheet } from "@/components/admin/BookingSheet";
 import { NewBookingSheet } from "@/components/admin/NewBookingSheet";
@@ -33,6 +33,7 @@ export default function Tagesplan() {
   const [day, setDay] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [blocked, setBlocked] = useState<BlockedSlot[]>([]);
+  const [absences, setAbsences] = useState<BarberAbsence[]>([]);
   const [clientNotes, setClientNotes] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Booking | null>(null);
   const [creating, setCreating] = useState(false);
@@ -44,11 +45,12 @@ export default function Tagesplan() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([db.listBookings(key, key), db.listBlocked(key, key)])
-      .then(([b, blk]) => {
+    Promise.all([db.listBookings(key, key), db.listBlocked(key, key), db.listAbsences(key, key)])
+      .then(([b, blk, abs]) => {
         if (cancelled) return;
         setBookings(b);
         setBlocked(blk);
+        setAbsences(abs);
       })
       .catch(() => undefined);
     return () => {
@@ -234,6 +236,7 @@ export default function Tagesplan() {
             barbers={activeBarbers}
             openingHours={openingHours}
             barberHours={barberHours}
+            absences={absences}
             bookings={bookings}
             blocked={blocked}
             onSelect={setSelected}

@@ -118,6 +118,35 @@ describe("horaires propres au barbier", () => {
     expect(workWindow(WED, "brb-del", SEED_OPENING_HOURS, [], abs)).toBeNull();
     expect(workWindow(new Date(2026, 8, 17), "brb-del", SEED_OPENING_HOURS, [], abs)).not.toBeNull();
   });
+
+  it("Ayouan echange son mercredi contre un jeudi, cette semaine-la seulement", () => {
+    const hours = SEED_BARBER_HOURS;
+    const THU = new Date(2026, 8, 17);
+    const abs = [
+      { id: "a", barber_id: "brb-ayouan", start_date: "2026-09-16", end_date: "2026-09-16", reason: "", kind: "off" as const },
+      { id: "b", barber_id: "brb-ayouan", start_date: "2026-09-17", end_date: "2026-09-17", reason: "", kind: "work" as const },
+    ];
+    expect(workWindow(WED, "brb-ayouan", SEED_OPENING_HOURS, hours, abs)).toBeNull();
+    expect(workWindow(THU, "brb-ayouan", SEED_OPENING_HOURS, hours, abs)).toEqual([9 * 60, 19 * 60]);
+    // le jeudi suivant, il ne travaille toujours pas
+    expect(workWindow(new Date(2026, 8, 24), "brb-ayouan", SEED_OPENING_HOURS, hours, abs)).toBeNull();
+  });
+
+  it("un jour en plus garde ses propres heures, dans celles du salon", () => {
+    const THU = new Date(2026, 8, 17);
+    const abs = [
+      { id: "b", barber_id: "brb-ayouan", start_date: "2026-09-17", end_date: "2026-09-17", reason: "", kind: "work" as const, start_time: "08:00:00", end_time: "14:00:00" },
+    ];
+    expect(workWindow(THU, "brb-ayouan", SEED_OPENING_HOURS, SEED_BARBER_HOURS, abs)).toEqual([9 * 60, 14 * 60]);
+  });
+
+  it("une absence l'emporte sur un jour en plus", () => {
+    const abs = [
+      { id: "a", barber_id: "brb-del", start_date: "2026-09-16", end_date: "2026-09-16", reason: "", kind: "work" as const },
+      { id: "b", barber_id: "brb-del", start_date: "2026-09-14", end_date: "2026-09-20", reason: "" },
+    ];
+    expect(workWindow(WED, "brb-del", SEED_OPENING_HOURS, [], abs)).toBeNull();
+  });
 });
 
 describe("egal wer", () => {

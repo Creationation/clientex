@@ -39,6 +39,10 @@ export function BarberSchedule({
   const [from, setFrom] = useState(toDateKey(new Date()));
   const [to, setTo] = useState(toDateKey(addDays(new Date(), 7)));
   const [reason, setReason] = useState("");
+  const [kind, setKind] = useState<"off" | "work">("off");
+  const [ownTimes, setOwnTimes] = useState(false);
+  const [workStart, setWorkStart] = useState("09:00");
+  const [workEnd, setWorkEnd] = useState("18:00");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -87,7 +91,17 @@ export function BarberSchedule({
 
   const addAbsence = async () => {
     if (!from || !to || to < from) return;
-    await db.createAbsence({ barber_id: barber.id, start_date: from, end_date: to, reason: reason.trim() });
+    if (kind === "work" && ownTimes && workEnd <= workStart) return;
+    await db.createAbsence({
+      barber_id: barber.id,
+      start_date: from,
+      end_date: to,
+      reason: reason.trim(),
+      kind,
+      // sans heures propres, le barbier suit les horaires du salon ce jour-la
+      start_time: kind === "work" && ownTimes ? workStart : null,
+      end_time: kind === "work" && ownTimes ? workEnd : null,
+    });
     setReason("");
     loadAbsences();
     reload();
@@ -169,7 +183,21 @@ export function BarberSchedule({
         <h4 className="font-body text-[10px] font-semibold uppercase tracking-brand text-brass">
           {t.admin.absences}
         </h4>
-        <p className="mt-1 font-body text-[12px] text-stone">{t.admin.absenceHint}</p>
+        <div className="mt-3 flex gap-1">
+          {(["off", "work"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setKind(k)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 font-body text-[10px] font-semibold uppercase tracking-wider transition-colors",
+                kind === k ? "border-carbon bg-carbon text-paper" : "border-carbon/15 text-stone hover:text-carbon",
+              )}
+            >
+              {k === "off" ? t.admin.kindOff : t.admin.kindWork}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 font-body text-[12px] text-stone">{kind === "off" ? t.admin.absenceHint : t.admin.workHint}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <Field label={t.admin.from}>
             <input type="date" className="field !py-2" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -177,12 +205,35 @@ export function BarberSchedule({
           <Field label={t.admin.to}>
             <input type="date" className="field !py-2" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
           </Field>
+          {kind === "work" && (
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              {[false, true].map((own) => (
+                <button
+                  key={String(own)}
+                  onClick={() => setOwnTimes(own)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 font-body text-[10px] font-semibold uppercase tracking-wider transition-colors",
+                    ownTimes === own ? "border-carbon bg-carbon text-paper" : "border-carbon/15 text-stone hover:text-carbon",
+                  )}
+                >
+                  {own ? t.admin.ownHours : t.admin.shopHours}
+                </button>
+              ))}
+              {ownTimes && (
+                <div className="flex items-center gap-2">
+                  <input type="time" className="field !w-auto !py-1.5 !text-[12px]" value={workStart} onChange={(e) => setWorkStart(e.target.value)} />
+                  <span className="text-stone">-</span>
+                  <input type="time" className="field !w-auto !py-1.5 !text-[12px]" value={workEnd} onChange={(e) => setWorkEnd(e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
           <Field label={t.admin.reason} className="sm:col-span-2">
             <div className="flex gap-2">
               <input
                 className="field !py-2"
                 value={reason}
-                placeholder="Urlaub"
+                placeholder={kind === "off" ? "Urlaub" : "Tag getauscht"}
                 onChange={(e) => setReason(e.target.value)}
               />
               <button onClick={addAbsence} disabled={!from || !to || to < from} className="btn-ghost shrink-0 !px-4 !py-2">
@@ -203,6 +254,16 @@ export function BarberSchedule({
                   className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2"
                 >
                   <span className="font-body text-[13px] text-carbon">
+                    <span
+                      className={cn(
+                        "mr-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                        a.kind === "work" ? "bg-emerald-100 text-emerald-800" : "bg-carbon/[0.07] text-stone",
+                      )}
+                    >
+                      {a.kind === "work"
+                        ? `${t.admin.extraDay}${a.start_time && a.end_time ? ` ${a.start_time.slice(0, 5)}-${a.end_time.slice(0, 5)}` : ""}`
+                        : t.admin.kindOff}
+                    </span>
                     {fromDateKey(a.start_date).toLocaleDateString(lang, { day: "2-digit", month: "short" })}
                     {" - "}
                     {fromDateKey(a.end_date).toLocaleDateString(lang, { day: "2-digit", month: "short", year: "numeric" })}

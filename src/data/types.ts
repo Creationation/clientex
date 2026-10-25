@@ -52,13 +52,22 @@ export interface BarberHour {
   end_time: string;
 }
 
-/** Conge ou absence d'un barbier sur une plage de dates, bornes incluses. */
+/**
+ * Exception datee aux horaires d'un barbier, bornes incluses : conge ou
+ * absence ("off"), ou jour de travail en plus ("work") qui remplace ses
+ * horaires de la semaine sur ces dates.
+ */
 export interface BarberAbsence {
   id: string;
   barber_id: string;
   start_date: string; // YYYY-MM-DD
   end_date: string;   // YYYY-MM-DD
   reason: string;
+  /** Absent du type = "off" (lignes d'avant le 25 oct. 2026). */
+  kind?: "off" | "work";
+  /** Seulement pour "work" ; null = horaires du salon. */
+  start_time?: string | null;
+  end_time?: string | null;
 }
 
 export interface Booking {

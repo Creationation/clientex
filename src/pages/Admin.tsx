@@ -11,7 +11,7 @@ import { useTagesplanMode } from "@/hooks/useTagesplanMode";
 import { db } from "@/lib/db";
 import { SEED_ADMIN } from "@/data/seed";
 import { addDays, cn, startOfWeek, toDateKey } from "@/lib/utils";
-import type { AdminAccount, BlockedSlot, Booking } from "@/data/types";
+import type { AdminAccount, BarberAbsence, BlockedSlot, Booking } from "@/data/types";
 import { Wordmark } from "@/components/Header";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { BookingsList, DayView, WeekView } from "@/components/admin/CalendarViews";
@@ -161,6 +161,7 @@ function Dashboard() {
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [blocked, setBlocked] = useState<BlockedSlot[]>([]);
+  const [absences, setAbsences] = useState<BarberAbsence[]>([]);
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [selected, setSelected] = useState<Booking | null>(null);
   const [creating, setCreating] = useState<null | { name: string; phone: string; email: string } | true>(null);
@@ -180,11 +181,13 @@ function Dashboard() {
       db.listBookings(range[0], range[1]),
       db.listBlocked(range[0], range[1]),
       db.listAdmins(),
+      db.listAbsences(range[0], range[1]),
     ])
-      .then(([b, blk, adm]) => {
+      .then(([b, blk, adm, abs]) => {
         if (cancelled) return;
         setBookings(b);
         setBlocked(blk);
+        setAbsences(abs);
         setAdmins(adm);
       })
       .catch(() => undefined);
@@ -234,6 +237,7 @@ function Dashboard() {
     barbers: activeBarbers,
     openingHours,
     barberHours,
+    absences,
     bookings,
     blocked,
     onSelect: setSelected,

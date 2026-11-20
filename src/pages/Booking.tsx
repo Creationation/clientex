@@ -193,16 +193,41 @@ export default function Booking() {
     setTime("");
   };
 
-  /* Jours ouvrables proposes, limites par max_advance_days */
+  /*
+   * Reste-t-il de quoi tenir un rendez-vous aujourd'hui ? On compare la
+   * premiere heure encore reservable (maintenant + delai minimum) au dernier
+   * debut possible (fermeture moins la duree choisie).
+   */
+  const encoreTempsAujourdHui = useCallback(() => {
+    const now = new Date();
+    const hours = openingHours.find((h) => h.weekday === now.getDay());
+    if (!hours || !hours.is_open) return false;
+    const plusTot = Math.max(
+      now.getHours() * 60 + now.getMinutes() + settings.min_lead_time_min,
+      toMinutes(hours.open_time),
+    );
+    return plusTot <= toMinutes(hours.close_time) - totalDuration;
+  }, [openingHours, settings.min_lead_time_min, totalDuration]);
+
+  /*
+   * Jours ouvrables proposes, limites par max_advance_days.
+   *
+   * Le jour meme disparait de la liste des qu'il est trop tard pour y tenir
+   * un rendez-vous. Sans cela, le client qui regarde le soir arrive sur la
+   * date du jour, lit "rien de libre" et croit que la reservation est cassee,
+   * alors que le lendemain est grand ouvert.
+   */
   const availableDates = useMemo(() => {
     if (openingHours.length === 0) return [];
     const out: Date[] = [];
     for (let i = 0; i < settings.max_advance_days && out.length < 45; i++) {
       const d = addDays(new Date(), i);
-      if (isShopOpen(d, openingHours, [])) out.push(d);
+      if (!isShopOpen(d, openingHours, [])) continue;
+      if (i === 0 && !encoreTempsAujourdHui()) continue;
+      out.push(d);
     }
     return out;
-  }, [openingHours, settings.max_advance_days]);
+  }, [openingHours, settings.max_advance_days, encoreTempsAujourdHui]);
 
   useEffect(() => {
     if (availableDates.length === 0) return;

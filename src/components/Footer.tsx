@@ -99,11 +99,21 @@ export default function Footer({ openingHours }: { openingHours: OpeningHour[] }
           </div>
         </div>
 
-        <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-paper/10 pt-7 md:flex-row md:items-center">
+        <div className="mt-14 flex flex-col items-start gap-1.5 border-t border-paper/10 pt-7">
           <p className="font-body text-[12px] text-paper/40">
             &copy; {new Date().getFullYear()} {SALON.name}. {t.footer.rights}
           </p>
-          <p className="font-body text-[12px] text-paper/30">Creationation · Wien</p>
+          <p className="font-body text-[11px] text-paper/55">
+            {t.footer.credit}{" "}
+            <a
+              href="https://creationation.app"
+              target="_blank"
+              rel="noopener nofollow"
+              className="transition-colors duration-300 hover:text-paper"
+            >
+              Creationation
+            </a>
+          </p>
         </div>
       </div>
     </footer>

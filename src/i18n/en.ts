@@ -121,6 +121,7 @@ export const en: Dictionary = {
     impressum: "Legal notice",
     datenschutz: "Privacy",
     rights: "All rights reserved.",
+    credit: "Website by",
     admin: "Admin",
   },
   booking: {

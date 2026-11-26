@@ -119,6 +119,7 @@ export const de = {
     impressum: "Impressum",
     datenschutz: "Datenschutz",
     rights: "Alle Rechte vorbehalten.",
+    credit: "Website von",
     admin: "Admin",
   },
   booking: {

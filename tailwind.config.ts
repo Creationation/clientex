@@ -9,7 +9,7 @@ export default {
         // Fraunces : serif optique a contraste modere. Les pleins tiennent a
         // toutes les tailles, contrairement a un Didone dont les delies
         // disparaissent a l'ecran.
-        display: ["Fraunces", "Georgia", "serif"],
+        display: ["Fraunces Variable", "Fraunces", "Georgia", "serif"],
         body: ["Manrope", "system-ui", "sans-serif"],
       },
       colors: {

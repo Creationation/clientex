@@ -56,8 +56,18 @@ export const IMPRESSUM: { title: string; body: string[] }[] = [
     ],
   },
   {
-    title: "Umsetzung",
-    body: ["Konzeption und Umsetzung: Creationation, Wien."],
+    title: "Webdesign & technische Umsetzung",
+    body: [
+      "Creationation – creationation.app",
+      `Creationation hat diese Website ausschließlich im Auftrag von ${SALON.legalName} technisch erstellt. Medieninhaber und für sämtliche Inhalte verantwortlich ist allein ${SALON.legalName}. Dies gilt insbesondere für Texte, Fotos, Videos, Preise, Angebote, Terminverfügbarkeiten sowie für die Erbringung der angebotenen Leistungen. Creationation ist nicht Vertragspartner der Nutzer:innen dieser Website und übernimmt keine Haftung für die Inhalte, deren Richtigkeit oder für Rechte Dritter an den bereitgestellten Materialien.`,
+    ],
+  },
+  {
+    title: "Web design & development",
+    body: [
+      "Creationation – creationation.app",
+      `Creationation built this website on behalf of ${SALON.legalName} and is responsible for its technical implementation only. ${SALON.legalName} is the media owner and is solely responsible for all content, including texts, photos, videos, prices, offers and appointment availability, and for the services offered. Creationation is not a contracting party of this website's users and accepts no liability for the content, its accuracy, or third-party rights in the materials provided.`,
+    ],
   },
 ];
 

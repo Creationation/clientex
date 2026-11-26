@@ -109,9 +109,9 @@ export default function Footer({ openingHours }: { openingHours: OpeningHour[] }
               href="https://creationation.app"
               target="_blank"
               rel="noopener nofollow"
-              className="transition-colors duration-300 hover:text-paper"
+              className="underline underline-offset-2 transition-colors duration-300 hover:text-paper"
             >
-              Creationation
+              creationation.app
             </a>
           </p>
         </div>

@@ -3,7 +3,7 @@ import { LANGS, LANG_FLAG, LANG_LABEL, LANG_NAME } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
- * Selecteur de langue avec de vrais drapeaux (flagcdn.com, images PNG
+ * Selecteur de langue avec de vrais drapeaux (PNG auto-heberges dans public/flags, a l origine flagcdn.com, images PNG
  * servies par un CDN public) plutot que des emojis, dont le rendu varie
  * beaucoup selon le systeme et qui n'apparaissent pas du tout sur Windows.
  * Allemand = drapeau autrichien : le salon est viennois.
@@ -39,8 +39,8 @@ export default function LanguageSwitcher({ tone = "light" }: { tone?: "light" | 
             )}
           >
             <img
-              src={`https://flagcdn.com/w40/${LANG_FLAG[l]}.png`}
-              srcSet={`https://flagcdn.com/w80/${LANG_FLAG[l]}.png 2x`}
+              src={`/flags/${LANG_FLAG[l]}-40.png`}
+              srcSet={`/flags/${LANG_FLAG[l]}-80.png 2x`}
               width={20}
               height={15}
               alt=""
